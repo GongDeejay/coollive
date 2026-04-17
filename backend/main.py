@@ -21,7 +21,7 @@ client = OpenAI(
     base_url=os.environ.get("XIAOMI_BASE_URL", "https://token-plan-cn.xiaomimimo.com/v1"),
 )
 
-MODEL = os.environ.get("XIAOMI_MODEL", "mimo")
+MODEL = os.environ.get("XIAOMI_MODEL", "mimo-v2-omni")
 
 ZEN_SYSTEM_PROMPT = """你是一位深山中的禅宗大师。
 
