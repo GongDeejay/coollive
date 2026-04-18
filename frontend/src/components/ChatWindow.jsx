@@ -17,19 +17,53 @@ function TypingDots() {
   )
 }
 
-function Message({ msg }) {
+function LikeButton({ liked, onClick }) {
+  const [burst, setBurst] = useState(false)
+
+  const handleClick = () => {
+    if (liked) return
+    setBurst(true)
+    onClick()
+    setTimeout(() => setBurst(false), 600)
+  }
+
+  return (
+    <button
+      className={`like-btn ${liked ? 'like-btn--liked' : ''} ${burst ? 'like-btn--burst' : ''}`}
+      onClick={handleClick}
+      title={liked ? '已学习此风格' : '点赞，学习此风格'}
+      aria-label="点赞"
+    >
+      <ThumbIcon filled={liked} />
+      {liked && <span className="like-label">已学习</span>}
+    </button>
+  )
+}
+
+function Message({ msg, onLike }) {
   const isUser = msg.role === 'user'
+  const isZen = msg.role === 'zen'
+  const showLike = isZen && !msg.error && msg.message_id
+
   return (
     <div className={`msg-row ${isUser ? 'msg-row--user' : 'msg-row--zen'}`}>
-      {!isUser && (
+      {isZen && (
         <div className="avatar zen-avatar">
           <span className="avatar-circle" />
         </div>
       )}
-      <div className={`bubble ${isUser ? 'bubble--user' : 'bubble--zen'} ${msg.error ? 'bubble--error' : ''}`}>
-        {msg.content.split('\n').map((line, i) => (
-          <p key={i}>{line}</p>
-        ))}
+      <div className="msg-body">
+        <div className={`bubble ${isUser ? 'bubble--user' : 'bubble--zen'} ${msg.error ? 'bubble--error' : ''}`}>
+          {msg.content.split('\n').map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+        {showLike && (
+          <LikeButton
+            liked={msg.liked}
+            onClick={() => onLike(msg.id, msg.message_id)}
+          />
+        )}
       </div>
     </div>
   )
@@ -40,15 +74,13 @@ function WelcomeScreen() {
     <div className="welcome">
       <div className="welcome-enso" />
       <h1 className="welcome-title">万物皆有答案</h1>
-      <p className="welcome-sub">
-        说出你的烦恼，禅师为你拨开迷雾
-      </p>
+      <p className="welcome-sub">说出你的烦恼，禅师为你拨开迷雾</p>
       <p className="welcome-hint">be still · just this · let go</p>
     </div>
   )
 }
 
-export default function ChatWindow({ messages, loading, onSend }) {
+export default function ChatWindow({ messages, loading, onSend, onLike }) {
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
@@ -90,7 +122,9 @@ export default function ChatWindow({ messages, loading, onSend }) {
         {messages.length === 0 ? (
           <WelcomeScreen />
         ) : (
-          messages.map(msg => <Message key={msg.id} msg={msg} />)
+          messages.map(msg => (
+            <Message key={msg.id} msg={msg} onLike={onLike} />
+          ))
         )}
         {loading && (
           <div className="msg-row msg-row--zen">
@@ -132,9 +166,20 @@ export default function ChatWindow({ messages, loading, onSend }) {
   )
 }
 
+function ThumbIcon({ filled }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+      <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    </svg>
+  )
+}
+
 function SendIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="22" y1="2" x2="11" y2="13" />
       <polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>

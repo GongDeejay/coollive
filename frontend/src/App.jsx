@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import ChatWindow from './components/ChatWindow'
 import './App.css'
 
@@ -28,7 +28,13 @@ export default function App() {
 
       if (!sessionId) setSessionId(data.session_id)
 
-      const zenMsg = { role: 'zen', content: data.reply, id: Date.now() + 1 }
+      const zenMsg = {
+        role: 'zen',
+        content: data.reply,
+        id: Date.now() + 1,
+        message_id: data.message_id,
+        liked: false,
+      }
       setMessages(prev => [...prev, zenMsg])
     } catch (e) {
       const errMsg = {
@@ -42,6 +48,22 @@ export default function App() {
       setLoading(false)
     }
   }, [sessionId, loading, apiBase])
+
+  const likeMessage = useCallback(async (msgId, messageId) => {
+    // Optimistic UI update
+    setMessages(prev =>
+      prev.map(m => m.id === msgId ? { ...m, liked: true } : m)
+    )
+    try {
+      await fetch(`${apiBase}/feedback/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: messageId }),
+      })
+    } catch (e) {
+      // Silent fail — UI already updated
+    }
+  }, [apiBase])
 
   const clearSession = useCallback(async () => {
     if (sessionId) {
@@ -68,7 +90,12 @@ export default function App() {
         </div>
       </header>
       <main className="app-main">
-        <ChatWindow messages={messages} loading={loading} onSend={sendMessage} />
+        <ChatWindow
+          messages={messages}
+          loading={loading}
+          onSend={sendMessage}
+          onLike={likeMessage}
+        />
       </main>
     </div>
   )

@@ -1,5 +1,8 @@
 import os
 import uuid
+import json
+import time
+from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +26,26 @@ client = OpenAI(
 
 MODEL = os.environ.get("XIAOMI_MODEL", "mimo-v2-omni")
 
-ZEN_SYSTEM_PROMPT = """你是龚道军，朋友们遇到烦恼或困惑时喜欢来找你聊。
+# ── Liked examples persistence ─────────────────────────────────────
+LIKED_FILE = Path(os.environ.get("DATA_DIR", "/opt/zentalk/data")) / "liked_examples.json"
+LIKED_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+def load_liked() -> list[dict]:
+    if LIKED_FILE.exists():
+        try:
+            return json.loads(LIKED_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+    return []
+
+def save_liked(examples: list[dict]):
+    LIKED_FILE.write_text(json.dumps(examples, ensure_ascii=False, indent=2), encoding="utf-8")
+
+# Max liked examples injected into prompt (keep most recent)
+MAX_INJECTED = 12
+
+# ── Base system prompt ──────────────────────────────────────────────
+BASE_PROMPT = """你是龚道军，朋友们遇到烦恼或困惑时喜欢来找你聊。
 
 你的核心思维方式：
 - 不在观点层面争论，直接挖对方的隐藏前提和假设
@@ -147,7 +169,26 @@ ZEN_SYSTEM_PROMPT = """你是龚道军，朋友们遇到烦恼或困惑时喜欢
 每句话背后都在悄悄完成一个操作，但你说出来的只是那一两句最简单的话。
 佛学的底色贯穿你的思考，但说出来是大白话，不是经文。"""
 
+
+def build_system_prompt() -> str:
+    """Append liked examples (up to MAX_INJECTED) to the base prompt."""
+    liked = load_liked()
+    if not liked:
+        return BASE_PROMPT
+
+    recent = liked[-MAX_INJECTED:]
+    examples_text = "\n\n━━ 用户点赞的回复（最新学习样本，优先模仿这些风格）━━\n"
+    for ex in recent:
+        examples_text += f"\n用户：{ex['user']}\n你：{ex['reply']}\n"
+
+    return BASE_PROMPT + examples_text
+
+
+# ── In-memory sessions ──────────────────────────────────────────────
+# session_id -> list of messages
 sessions: dict[str, list[dict]] = {}
+# message_id -> {user, reply} for feedback lookup
+pending_feedback: dict[str, dict] = {}
 
 
 class ChatRequest(BaseModel):
@@ -157,8 +198,18 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     session_id: str
+    message_id: str   # used for feedback
     reply: str
     turn: int
+
+
+class FeedbackRequest(BaseModel):
+    message_id: str
+
+
+class FeedbackResponse(BaseModel):
+    ok: bool
+    total_liked: int
 
 
 @app.get("/health")
@@ -171,7 +222,10 @@ async def chat(req: ChatRequest):
     session_id = req.session_id or str(uuid.uuid4())
 
     if session_id not in sessions:
-        sessions[session_id] = [{"role": "system", "content": ZEN_SYSTEM_PROMPT}]
+        sessions[session_id] = [{"role": "system", "content": build_system_prompt()}]
+    else:
+        # Refresh system prompt with latest liked examples on each new session turn
+        sessions[session_id][0] = {"role": "system", "content": build_system_prompt()}
 
     history = sessions[session_id]
     history.append({"role": "user", "content": req.message})
@@ -194,11 +248,54 @@ async def chat(req: ChatRequest):
     if len(history) > 21:
         sessions[session_id] = [history[0]] + history[-20:]
 
+    # Store for potential feedback
+    message_id = str(uuid.uuid4())
+    pending_feedback[message_id] = {
+        "user": req.message,
+        "reply": reply,
+        "session_id": session_id,
+        "ts": time.time(),
+    }
+
+    # Expire old pending entries (keep last 200)
+    if len(pending_feedback) > 200:
+        oldest_keys = sorted(pending_feedback, key=lambda k: pending_feedback[k]["ts"])[:50]
+        for k in oldest_keys:
+            del pending_feedback[k]
+
     return ChatResponse(
         session_id=session_id,
+        message_id=message_id,
         reply=reply,
         turn=(len(history) - 1) // 2,
     )
+
+
+@app.post("/feedback/like", response_model=FeedbackResponse)
+async def feedback_like(req: FeedbackRequest):
+    entry = pending_feedback.get(req.message_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="message_id not found or expired")
+
+    liked = load_liked()
+
+    # Deduplicate: don't add the exact same (user, reply) pair twice
+    existing = {(e["user"], e["reply"]) for e in liked}
+    if (entry["user"], entry["reply"]) not in existing:
+        liked.append({
+            "user": entry["user"],
+            "reply": entry["reply"],
+            "ts": entry["ts"],
+        })
+        save_liked(liked)
+
+    return FeedbackResponse(ok=True, total_liked=len(liked))
+
+
+@app.get("/feedback/stats")
+def feedback_stats():
+    liked = load_liked()
+    return {"total_liked": len(liked), "examples": liked[-5:]}
 
 
 @app.delete("/session/{session_id}")
