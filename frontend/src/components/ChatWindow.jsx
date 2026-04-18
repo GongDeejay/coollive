@@ -17,33 +17,52 @@ function TypingDots() {
   )
 }
 
-function LikeButton({ liked, onClick }) {
-  const [burst, setBurst] = useState(false)
+function FeedbackButtons({ liked, disliked, onLike, onDislike }) {
+  const [likeBurst, setLikeBurst] = useState(false)
+  const [dislikeBurst, setDislikeBurst] = useState(false)
 
-  const handleClick = () => {
-    if (liked) return
-    setBurst(true)
-    onClick()
-    setTimeout(() => setBurst(false), 600)
+  const handleLike = () => {
+    if (liked || disliked) return
+    setLikeBurst(true)
+    onLike()
+    setTimeout(() => setLikeBurst(false), 600)
+  }
+
+  const handleDislike = () => {
+    if (liked || disliked) return
+    setDislikeBurst(true)
+    onDislike()
+    setTimeout(() => setDislikeBurst(false), 600)
   }
 
   return (
-    <button
-      className={`like-btn ${liked ? 'like-btn--liked' : ''} ${burst ? 'like-btn--burst' : ''}`}
-      onClick={handleClick}
-      title={liked ? '已学习此风格' : '点赞，学习此风格'}
-      aria-label="点赞"
-    >
-      <ThumbIcon filled={liked} />
-      {liked && <span className="like-label">已学习</span>}
-    </button>
+    <div className="feedback-btns">
+      <button
+        className={`feedback-btn feedback-btn--like ${liked ? 'feedback-btn--active-like' : ''} ${likeBurst ? 'feedback-btn--burst' : ''}`}
+        onClick={handleLike}
+        disabled={liked || disliked}
+        title="学习此风格"
+        aria-label="点赞"
+      >
+        <ThumbUpIcon filled={liked} />
+      </button>
+      <button
+        className={`feedback-btn feedback-btn--dislike ${disliked ? 'feedback-btn--active-dislike' : ''} ${dislikeBurst ? 'feedback-btn--burst' : ''}`}
+        onClick={handleDislike}
+        disabled={liked || disliked}
+        title="避免此风格"
+        aria-label="不喜欢"
+      >
+        <ThumbDownIcon filled={disliked} />
+      </button>
+    </div>
   )
 }
 
-function Message({ msg, onLike }) {
+function Message({ msg, onLike, onDislike }) {
   const isUser = msg.role === 'user'
   const isZen = msg.role === 'zen'
-  const showLike = isZen && !msg.error && msg.message_id
+  const showFeedback = isZen && !msg.error && msg.message_id
 
   return (
     <div className={`msg-row ${isUser ? 'msg-row--user' : 'msg-row--zen'}`}>
@@ -58,10 +77,12 @@ function Message({ msg, onLike }) {
             <p key={i}>{line}</p>
           ))}
         </div>
-        {showLike && (
-          <LikeButton
-            liked={msg.liked}
-            onClick={() => onLike(msg.id, msg.message_id)}
+        {showFeedback && (
+          <FeedbackButtons
+            liked={!!msg.liked}
+            disliked={!!msg.disliked}
+            onLike={() => onLike(msg.id, msg.message_id)}
+            onDislike={() => onDislike(msg.id, msg.message_id)}
           />
         )}
       </div>
@@ -74,13 +95,12 @@ function WelcomeScreen() {
     <div className="welcome">
       <div className="welcome-enso" />
       <h1 className="welcome-title">万物皆有答案</h1>
-      <p className="welcome-sub">说出你的烦恼，禅师为你拨开迷雾</p>
       <p className="welcome-hint">be still · just this · let go</p>
     </div>
   )
 }
 
-export default function ChatWindow({ messages, loading, onSend, onLike }) {
+export default function ChatWindow({ messages, loading, onSend, onLike, onDislike }) {
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
@@ -123,7 +143,7 @@ export default function ChatWindow({ messages, loading, onSend, onLike }) {
           <WelcomeScreen />
         ) : (
           messages.map(msg => (
-            <Message key={msg.id} msg={msg} onLike={onLike} />
+            <Message key={msg.id} msg={msg} onLike={onLike} onDislike={onDislike} />
           ))
         )}
         {loading && (
@@ -166,12 +186,22 @@ export default function ChatWindow({ messages, loading, onSend, onLike }) {
   )
 }
 
-function ThumbIcon({ filled }) {
+function ThumbUpIcon({ filled }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}
+    <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
       <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    </svg>
+  )
+}
+
+function ThumbDownIcon({ filled }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
+      <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
     </svg>
   )
 }

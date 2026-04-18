@@ -34,6 +34,7 @@ export default function App() {
         id: Date.now() + 1,
         message_id: data.message_id,
         liked: false,
+        disliked: false,
       }
       setMessages(prev => [...prev, zenMsg])
     } catch (e) {
@@ -50,7 +51,6 @@ export default function App() {
   }, [sessionId, loading, apiBase])
 
   const likeMessage = useCallback(async (msgId, messageId) => {
-    // Optimistic UI update
     setMessages(prev =>
       prev.map(m => m.id === msgId ? { ...m, liked: true } : m)
     )
@@ -60,9 +60,20 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message_id: messageId }),
       })
-    } catch (e) {
-      // Silent fail — UI already updated
-    }
+    } catch (e) {}
+  }, [apiBase])
+
+  const dislikeMessage = useCallback(async (msgId, messageId) => {
+    setMessages(prev =>
+      prev.map(m => m.id === msgId ? { ...m, disliked: true } : m)
+    )
+    try {
+      await fetch(`${apiBase}/feedback/dislike`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: messageId }),
+      })
+    } catch (e) {}
   }, [apiBase])
 
   const clearSession = useCallback(async () => {
@@ -95,6 +106,7 @@ export default function App() {
           loading={loading}
           onSend={sendMessage}
           onLike={likeMessage}
+          onDislike={dislikeMessage}
         />
       </main>
     </div>
