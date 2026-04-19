@@ -6,14 +6,16 @@
   margin: 0 auto;
 }
 
+/* ── Header ── */
 .app-header {
-  padding: 0 20px;
-  height: 56px;
+  padding: 0 var(--page-pad);
+  height: 52px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   position: relative;
+  gap: 0;
 }
 
 .header-inner {
@@ -23,42 +25,36 @@
   justify-content: space-between;
 }
 
+/* ── Logo ── */
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .logo-circle {
-  width: 22px;
-  height: 22px;
+  width: 20px; height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
+  border: 1.5px solid var(--accent);
   display: inline-block;
   position: relative;
 }
-
 .logo-circle::after {
   content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+  width: 5px; height: 5px;
+  border-radius: 50%; background: var(--accent);
 }
 
 .logo-text {
   font-family: 'Noto Serif SC', serif;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--accent);
-  letter-spacing: 0.03em;
+  font-size: 16px; font-weight: 600;
+  color: var(--accent); letter-spacing: 0.03em;
 }
 
-/* ── Nav tabs ── */
+/* ── Center nav tabs ── */
 .app-nav {
   display: flex;
   align-items: center;
@@ -73,18 +69,14 @@
 }
 
 .nav-tab {
-  background: transparent;
-  border: none;
+  background: transparent; border: none;
   color: var(--text-secondary);
-  font-size: 13px;
-  font-family: inherit;
-  padding: 4px 16px;
+  font-size: 13px; font-family: inherit;
+  padding: 4px 14px;
   border-radius: 16px;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px;
+  white-space: nowrap;
 }
 
 .nav-tab--active {
@@ -94,38 +86,64 @@
 
 .nav-badge {
   font-size: 10px;
-  background: var(--accent);
-  color: #0f0f0f;
-  border-radius: 8px;
-  padding: 0 5px;
-  line-height: 16px;
-  font-weight: 600;
+  background: var(--accent); color: #0f0f0f;
+  border-radius: 8px; padding: 0 5px;
+  line-height: 16px; font-weight: 600;
 }
 
-.btn-clear-placeholder {
-  width: 52px;
+/* ── Right side header actions ── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .btn-clear {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  padding: 5px 14px;
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   font-family: inherit;
   transition: all 0.2s;
+  white-space: nowrap;
 }
+.btn-clear:hover { border-color: var(--accent); color: var(--accent); }
 
-.btn-clear:hover {
-  border-color: var(--accent);
+.btn-auth {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-auth:hover { border-color: var(--accent); color: var(--accent); }
+.btn-auth--user {
   color: var(--accent);
+  border-color: var(--accent);
+  opacity: 0.8;
 }
 
+/* ── Main area ── */
 .app-main {
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+
+/* ── Mobile: shrink nav text ── */
+@media (max-width: 400px) {
+  .nav-tab { padding: 4px 10px; font-size: 12px; }
+  .logo-text { font-size: 14px; }
+  .btn-clear, .btn-auth { padding: 4px 8px; font-size: 11px; }
 }

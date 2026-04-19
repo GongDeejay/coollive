@@ -1,13 +1,20 @@
 import os
+import sys
 import uuid
 import json
 import time
 from pathlib import Path
 from typing import Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
+
+# Ensure backend directory is on path so auth.py is importable
+_backend_dir = Path(__file__).parent
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+import auth as _auth
 
 app = FastAPI(title="ZenTalk API")
 
@@ -400,6 +407,69 @@ def feedback_stats():
 def clear_session(session_id: str):
     sessions.pop(session_id, None)
     return {"cleared": True}
+
+
+# ── Auth routes ────────────────────────────────────────────────────
+
+class AuthRequest(BaseModel):
+    email: str
+    password: str
+
+
+@app.post("/auth/register")
+def route_register(req: AuthRequest):
+    return _auth.register(req.email, req.password)
+
+
+@app.post("/auth/login")
+def route_login(req: AuthRequest):
+    return _auth.login(req.email, req.password)
+
+
+@app.get("/auth/me")
+def route_me(authorization: Optional[str] = Header(default=None)):
+    user = _auth.optional_user(authorization)
+    if not user:
+        return {"logged_in": False}
+    return {"logged_in": True, "user_id": user["sub"], "email": user["email"]}
+
+
+# ── Journal cloud routes (login required) ─────────────────────────
+
+class JournalSyncRequest(BaseModel):
+    entry: dict
+
+
+class JournalDeleteRequest(BaseModel):
+    entry_id: str
+
+
+@app.get("/journal/entries")
+def get_journal_entries(authorization: Optional[str] = Header(default=None)):
+    user = _auth.optional_user(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="login_required")
+    return {"entries": _auth.load_user_journal(user["sub"])}
+
+
+@app.post("/journal/entries/sync")
+def sync_journal_entry(req: JournalSyncRequest,
+                       authorization: Optional[str] = Header(default=None)):
+    user = _auth.optional_user(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="login_required")
+    entries = _auth.upsert_entry(user["sub"], req.entry)
+    return {"ok": True, "total": len(entries)}
+
+
+@app.delete("/journal/entries/{entry_id}")
+def delete_journal_entry(entry_id: str,
+                         authorization: Optional[str] = Header(default=None)):
+    user = _auth.optional_user(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="login_required")
+    entries = _auth.delete_entry(user["sub"], entry_id)
+    return {"ok": True, "total": len(entries)}
 
 
 # ── Journal: tag extraction ────────────────────────────────────────

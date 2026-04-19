@@ -17,6 +17,17 @@
   --zen-bubble: #1a1a1a;
   --scrollbar: #2e2e2e;
   --radius: 16px;
+
+  /* Responsive spacing */
+  --page-pad: 20px;
+  --bubble-max: 72%;
+}
+
+@media (max-width: 480px) {
+  :root {
+    --page-pad: 14px;
+    --bubble-max: 85%;
+  }
 }
 
 html, body, #root {
@@ -31,15 +42,10 @@ body {
   font-size: 15px;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
+  /* Prevent iOS bounce */
+  overscroll-behavior: none;
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--scrollbar);
-  border-radius: 2px;
-}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }

@@ -2,27 +2,52 @@ import { useState, useCallback, useEffect } from 'react'
 
 const STORAGE_KEY = 'zentalk_journal_v1'
 
-function loadEntries() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+function loadLocal() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [] } catch { return [] }
 }
-
-function saveEntries(entries) {
+function saveLocal(entries) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
 }
 
-export function useJournal(sessionId, apiBase) {
-  const [entries, setEntries] = useState(() => loadEntries())
-  const [saving, setSaving] = useState(false)
+export function useJournal(sessionId, apiBase, token) {
+  const [entries, setEntries] = useState(() => loadLocal())
+  const [saving, setSaving]   = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
-  // Sync to localStorage whenever entries change
+  // Sync localStorage whenever entries change
+  useEffect(() => { saveLocal(entries) }, [entries])
+
+  // When user logs in, fetch cloud entries and merge (cloud wins for same id)
   useEffect(() => {
-    saveEntries(entries)
-  }, [entries])
+    if (!token) return
+    setSyncing(true)
+    fetch(`${apiBase}/journal/entries`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        setEntries(prev => {
+          const cloudMap = Object.fromEntries(data.entries.map(e => [e.id, e]))
+          const localMap = Object.fromEntries(prev.map(e => [e.id, e]))
+          const merged = { ...localMap, ...cloudMap }
+          const sorted = Object.values(merged).sort((a, b) =>
+            new Date(b.created_at) - new Date(a.created_at)
+          )
+          // Push any local-only entries to cloud
+          prev.forEach(e => {
+            if (!cloudMap[e.id]) {
+              fetch(`${apiBase}/journal/entries/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ entry: e }),
+              }).catch(() => {})
+            }
+          })
+          return sorted
+        })
+      })
+      .catch(() => {})
+      .finally(() => setSyncing(false))
+  }, [token]) // eslint-disable-line
 
   const addEntry = useCallback(async ({ scene, feeling, reflection, raw }) => {
     const entry = {
@@ -33,17 +58,15 @@ export function useJournal(sessionId, apiBase) {
       feeling: feeling || '',
       reflection: reflection || '',
       raw: raw || '',
-      tags: null,       // filled after API call
+      tags: null,
       summary: '',
       zen_session_id: null,
       zen_reply_id: null,
     }
 
-    // Optimistically add entry
     setEntries(prev => [entry, ...prev])
     setSaving(true)
 
-    // Extract tags async
     try {
       const res = await fetch(`${apiBase}/journal/tags`, {
         method: 'POST',
@@ -52,24 +75,33 @@ export function useJournal(sessionId, apiBase) {
       })
       if (res.ok) {
         const data = await res.json()
-        setEntries(prev => prev.map(e =>
-          e.id === entry.id
-            ? { ...e, tags: data, summary: data.summary }
-            : e
-        ))
+        const updated = { ...entry, tags: data, summary: data.summary }
+        setEntries(prev => prev.map(e => e.id === entry.id ? updated : e))
+
+        // Sync to cloud if logged in
+        if (token) {
+          fetch(`${apiBase}/journal/entries/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ entry: updated }),
+          }).catch(() => {})
+        }
       }
-    } catch {
-      // Tags remain null — entry still saved locally
-    } finally {
-      setSaving(false)
-    }
+    } catch { /* tags remain null */ }
+    finally { setSaving(false) }
 
     return entry.id
-  }, [sessionId, apiBase])
+  }, [sessionId, apiBase, token])
 
   const deleteEntry = useCallback((id) => {
     setEntries(prev => prev.filter(e => e.id !== id))
-  }, [])
+    if (token) {
+      fetch(`${apiBase}/journal/entries/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {})
+    }
+  }, [apiBase, token])
 
   const exportMarkdown = useCallback(() => {
     const lines = entries.map(e => {
@@ -78,25 +110,19 @@ export function useJournal(sessionId, apiBase) {
       const tags = e.tags
         ? `#${[...e.tags.emotion, ...e.tags.topic, ...e.tags.operation, e.tags.timeview, e.tags.energy].join(' #')}`
         : ''
-      const parts = [
-        `## ${dt}`,
-        tags,
-        '',
-        e.scene    ? `**场景：** ${e.scene}` : '',
-        e.feeling  ? `**感受：** ${e.feeling}` : '',
+      return [
+        `## ${dt}`, tags, '',
+        e.scene      ? `**场景：** ${e.scene}` : '',
+        e.feeling    ? `**感受：** ${e.feeling}` : '',
         e.reflection ? `**体会：** ${e.reflection}` : '',
         e.raw && !e.scene ? e.raw : '',
-        '',
-        '---',
-      ].filter(l => l !== undefined)
-      return parts.join('\n')
+        '', '---',
+      ].filter(Boolean).join('\n')
     })
     return `# ZenTalk 日记导出\n\n${lines.join('\n')}`
   }, [entries])
 
-  const exportJSON = useCallback(() => {
-    return JSON.stringify(entries, null, 2)
-  }, [entries])
+  const exportJSON = useCallback(() => JSON.stringify(entries, null, 2), [entries])
 
-  return { entries, saving, addEntry, deleteEntry, exportMarkdown, exportJSON }
+  return { entries, saving, syncing, addEntry, deleteEntry, exportMarkdown, exportJSON }
 }

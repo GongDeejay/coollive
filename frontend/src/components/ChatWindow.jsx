@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import './ChatWindow.css'
 
 const ZEN_PLACEHOLDERS = [
-  '你今日有何烦恼……',
-  '心中有何困惑，说来听听……',
-  '此刻，你在想什么……',
-  '有何事如鲠在喉……',
-  '放下一切，说说看……',
+  '此刻你在想什么……',
+  '有什么想和自己说的……',
+  '心里那个声音是什么……',
+  '放下来，说说看……',
+  '你真正在意的是什么……',
 ]
 
 function TypingDots() {
@@ -94,7 +94,7 @@ function WelcomeScreen() {
   return (
     <div className="welcome">
       <div className="welcome-enso" />
-      <h1 className="welcome-title">万物皆有答案</h1>
+      <h1 className="welcome-title">和自己说说话</h1>
       <p className="welcome-hint">be still · just this · let go</p>
     </div>
   )
@@ -180,7 +180,7 @@ export default function ChatWindow({ messages, loading, onSend, onLike, onDislik
             <SendIcon />
           </button>
         </div>
-        <p className="input-hint">Enter 发送 · Shift+Enter 换行</p>
+        <p className="input-hint">Enter 发送 &nbsp;·&nbsp; Shift+Enter 换行</p>
       </div>
     </div>
   )

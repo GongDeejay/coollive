@@ -202,7 +202,7 @@ function formatDateGroup(key) {
   return `${d.getMonth()+1}月${d.getDate()}日`
 }
 
-export default function JournalPage({ onSave, saving, entries, onDelete, onExportMd, onExportJson }) {
+export default function JournalPage({ onSave, saving, syncing, entries, onDelete, onExportMd, onExportJson, isLoggedIn, onLoginPrompt }) {
   const [view, setView] = useState('list') // 'list' | 'charts'
   const groups = groupByDate(entries)
 
@@ -221,6 +221,13 @@ export default function JournalPage({ onSave, saving, entries, onDelete, onExpor
 
   return (
     <div className="journal-page">
+      {!isLoggedIn && (
+        <div className="journal-login-banner">
+          <span>日记仅保存在本地</span>
+          <button onClick={onLoginPrompt}>登录同步云端 →</button>
+        </div>
+      )}
+      {syncing && <div className="journal-syncing">云端同步中…</div>}
       <JournalInput onSave={onSave} saving={saving} />
 
       {entries.length > 0 && (
