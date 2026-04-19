@@ -13,6 +13,7 @@
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
+  position: relative;
 }
 
 .header-inner {
@@ -57,10 +58,52 @@
   letter-spacing: 0.03em;
 }
 
-.logo-sub {
-  font-size: 13px;
+/* ── Nav tabs ── */
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nav-tab {
+  background: transparent;
+  border: none;
   color: var(--text-secondary);
-  font-weight: 300;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 4px 16px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.nav-tab--active {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.nav-badge {
+  font-size: 10px;
+  background: var(--accent);
+  color: #0f0f0f;
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.btn-clear-placeholder {
+  width: 52px;
 }
 
 .btn-clear {

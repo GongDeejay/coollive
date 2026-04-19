@@ -1,0 +1,36 @@
+.charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.charts-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+  opacity: 0.4;
+  font-family: 'Noto Serif SC', serif;
+}
+
+.charts-empty p { margin: 4px 0; font-size: 14px; }
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.chart-title {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.chart-canvas {
+  width: 100%;
+  display: block;
+  border-radius: 4px;
+}

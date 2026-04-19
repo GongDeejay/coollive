@@ -400,3 +400,81 @@ def feedback_stats():
 def clear_session(session_id: str):
     sessions.pop(session_id, None)
     return {"cleared": True}
+
+
+# ── Journal: tag extraction ────────────────────────────────────────
+
+TAG_EXTRACTION_PROMPT = """你是一个标签提取系统。
+用户给你一段日记内容，你需要从中提取结构化标签，同时生成一句摘要，全部放在一个 JSON 里返回。
+
+标签维度：
+- emotion: 情绪色调，从 [焦虑, 平静, 顿悟, 喜悦, 低落, 愤怒, 困惑, 感恩, 空] 中选1-2个
+- topic: 主题领域，从 [自我, 关系, 工作, 金钱, 身体, 时间, 目标, 创造, 社会] 中选1-3个
+- operation: 认知操作，从 [命名, 重构, 执念, 放下, 挖前提, 边界, 判断, 观察] 中选1-2个
+- timeview: 时间视角，从 [过去, 当下, 未来] 中选1个
+- energy: 能量状态，从 [高能, 低谷, 平稳] 中选1个
+- summary: 一句话摘要，不超过20字，概括这段日记核心
+
+只返回 JSON，格式如下，不要任何其他文字：
+{"emotion":["焦虑"],"topic":["自我","时间"],"operation":["执念"],"timeview":"当下","energy":"低谷","summary":"对时间不足的执念源于过多的欲望"}
+"""
+
+
+class JournalTagRequest(BaseModel):
+    content: Optional[str] = None
+    scene: Optional[str] = None
+    feeling: Optional[str] = None
+    reflection: Optional[str] = None
+
+
+class JournalTagResponse(BaseModel):
+    emotion: list[str]
+    topic: list[str]
+    operation: list[str]
+    timeview: str
+    energy: str
+    summary: str  # one-line auto summary
+
+
+@app.post("/journal/tags", response_model=JournalTagResponse)
+async def extract_journal_tags(req: JournalTagRequest):
+    parts = []
+    if req.scene:       parts.append(f"场景：{req.scene}")
+    if req.feeling:     parts.append(f"感受：{req.feeling}")
+    if req.reflection:  parts.append(f"体会：{req.reflection}")
+    if req.content:     parts.append(req.content)
+    full_text = "\n".join(parts) if parts else req.content
+
+    if not full_text.strip():
+        raise HTTPException(status_code=400, detail="内容不能为空")
+
+    try:
+        import re as _re
+        tag_resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": TAG_EXTRACTION_PROMPT},
+                {"role": "user", "content": full_text[:800]},
+            ],
+            max_tokens=800,
+            temperature=0.2,
+        )
+        raw = tag_resp.choices[0].message.content.strip()
+        m = _re.search(r'\{.*\}', raw, _re.DOTALL)
+        tags = json.loads(m.group()) if m else {}
+        summary = tags.pop("summary", "")
+        if not summary:
+            # Fallback: first 20 chars of content
+            summary = full_text[:20].replace('\n', ' ')
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"标签提取失败: {str(e)}")
+
+    return JournalTagResponse(
+        emotion=tags.get("emotion", ["平静"]),
+        topic=tags.get("topic", ["自我"]),
+        operation=tags.get("operation", ["观察"]),
+        timeview=tags.get("timeview", "当下"),
+        energy=tags.get("energy", "平稳"),
+        summary=summary,
+    )
