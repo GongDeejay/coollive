@@ -27,7 +27,7 @@ function TagPill({ label, type }) {
   )
 }
 
-function EntryCard({ entry, onDelete }) {
+function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn }) {
   const [expanded, setExpanded] = useState(false)
   const d = new Date(entry.created_at)
   const dateStr = `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -39,14 +39,17 @@ function EntryCard({ entry, onDelete }) {
     <div className="entry-card" onClick={() => setExpanded(e => !e)}>
       <div className="entry-header">
         <span className="entry-date">{dateStr}</span>
-        {entry.tags && (
-          <div className="entry-tags-row">
-            {entry.tags.emotion?.map(t => <TagPill key={t} label={t} type="emotion" />)}
-            {entry.tags.topic?.slice(0, 2).map(t => <TagPill key={t} label={t} />)}
-            <TagPill label={entry.tags.energy} type="energy" />
-          </div>
-        )}
-        {!entry.tags && <span className="entry-tagging">分析中…</span>}
+        <div className="entry-header-right">
+          {entry.is_public && <span className="entry-public-badge">公开</span>}
+          {entry.tags && (
+            <div className="entry-tags-row">
+              {entry.tags.emotion?.map(t => <TagPill key={t} label={t} type="emotion" />)}
+              {entry.tags.topic?.slice(0, 2).map(t => <TagPill key={t} label={t} />)}
+              <TagPill label={entry.tags.energy} type="energy" />
+            </div>
+          )}
+          {!entry.tags && <span className="entry-tagging">分析中…</span>}
+        </div>
       </div>
 
       {!expanded && (
@@ -65,17 +68,36 @@ function EntryCard({ entry, onDelete }) {
             <p className="entry-raw">{entry.raw}</p>
           )}
           {entry.tags && (
-            <div className="entry-all-tags">
-              {entry.tags.emotion?.map(t => <TagPill key={t} label={t} type="emotion" />)}
-              {entry.tags.topic?.map(t => <TagPill key={t} label={t} />)}
-              {entry.tags.operation?.map(t => <TagPill key={t} label={t} />)}
-              <TagPill label={entry.tags.timeview} />
-              <TagPill label={entry.tags.energy} type="energy" />
-            </div>
+            <>
+              <div className="entry-all-tags">
+                {entry.tags.emotion?.map(t => <TagPill key={t} label={t} type="emotion" />)}
+                {entry.tags.topic?.map(t => <TagPill key={t} label={t} />)}
+                {entry.tags.operation?.map(t => <TagPill key={t} label={t} />)}
+                <TagPill label={entry.tags.timeview} />
+                <TagPill label={entry.tags.energy} type="energy" />
+              </div>
+              {entry.tags.keywords?.length > 0 && (
+                <div className="entry-keywords">
+                  {entry.tags.keywords.map(k => (
+                    <span key={k} className="keyword-chip">{k}</span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
-          <button className="entry-delete" onClick={e => { e.stopPropagation(); onDelete(entry.id) }}>
-            删除
-          </button>
+          <div className="entry-actions">
+            {isLoggedIn && (
+              <button
+                className={`entry-public-btn ${entry.is_public ? 'entry-public-btn--on' : ''}`}
+                onClick={e => { e.stopPropagation(); onTogglePublic(entry.id) }}
+              >
+                {entry.is_public ? '✓ 已公开' : '公开'}
+              </button>
+            )}
+            <button className="entry-delete" onClick={e => { e.stopPropagation(); onDelete(entry.id) }}>
+              删除
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -202,7 +224,7 @@ function formatDateGroup(key) {
   return `${d.getMonth()+1}月${d.getDate()}日`
 }
 
-export default function JournalPage({ onSave, saving, syncing, entries, onDelete, onExportMd, onExportJson, isLoggedIn, onLoginPrompt }) {
+export default function JournalPage({ onSave, saving, syncing, entries, onDelete, onTogglePublic, onExportMd, onExportJson, isLoggedIn, userId, onLoginPrompt }) {
   const [view, setView] = useState('list') // 'list' | 'charts'
   const groups = groupByDate(entries)
 
@@ -251,11 +273,29 @@ export default function JournalPage({ onSave, saving, syncing, entries, onDelete
               <p className="journal-empty-hint">场景 · 感受 · 体会</p>
             </div>
           )}
+          {isLoggedIn && userId && entries.some(e => e.is_public) && (
+            <div className="public-blog-link">
+              <span>公开文章可在</span>
+              <a
+                href={`/blog/${userId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                /blog/{userId.slice(0, 8)}…
+              </a>
+              <span>访问</span>
+            </div>
+          )}
           {groups.map(([key, dayEntries]) => (
             <div key={key} className="entry-group">
               <div className="entry-group-date">{formatDateGroup(key)}</div>
               {dayEntries.map(e => (
-                <EntryCard key={e.id} entry={e} onDelete={onDelete} />
+                <EntryCard
+                  key={e.id} entry={e}
+                  onDelete={onDelete}
+                  onTogglePublic={onTogglePublic}
+                  isLoggedIn={isLoggedIn}
+                />
               ))}
             </div>
           ))}

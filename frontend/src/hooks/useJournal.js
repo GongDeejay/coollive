@@ -103,6 +103,26 @@ export function useJournal(sessionId, apiBase, token) {
     }
   }, [apiBase, token])
 
+  const togglePublic = useCallback((id) => {
+    setEntries(prev => {
+      const updated = prev.map(e =>
+        e.id === id ? { ...e, is_public: !e.is_public } : e
+      )
+      // Sync to cloud if logged in
+      if (token) {
+        const entry = updated.find(e => e.id === id)
+        if (entry) {
+          fetch(`${apiBase}/journal/entries/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ entry }),
+          }).catch(() => {})
+        }
+      }
+      return updated
+    })
+  }, [apiBase, token])
+
   const exportMarkdown = useCallback(() => {
     const lines = entries.map(e => {
       const d = new Date(e.created_at)
@@ -124,5 +144,5 @@ export function useJournal(sessionId, apiBase, token) {
 
   const exportJSON = useCallback(() => JSON.stringify(entries, null, 2), [entries])
 
-  return { entries, saving, syncing, addEntry, deleteEntry, exportMarkdown, exportJSON }
+  return { entries, saving, syncing, addEntry, deleteEntry, togglePublic, exportMarkdown, exportJSON }
 }

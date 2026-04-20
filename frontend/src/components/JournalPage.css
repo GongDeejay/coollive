@@ -290,9 +290,19 @@
 
 .entry-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.entry-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .entry-date {
@@ -371,8 +381,44 @@
   border-top: 1px solid var(--border);
 }
 
+.entry-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.entry-public-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.entry-public-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.entry-public-btn--on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.entry-public-badge {
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 1px 6px;
+  opacity: 0.7;
+}
+
 .entry-delete {
-  align-self: flex-end;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -383,11 +429,44 @@
   padding: 2px 0;
   transition: opacity 0.15s;
 }
+.entry-delete:hover { opacity: 0.8; color: #c47a7a; }
 
-.entry-delete:hover {
-  opacity: 0.8;
-  color: #c47a7a;
+/* ── Keywords ── */
+.entry-keywords {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding-top: 2px;
 }
+
+.keyword-chip {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 2px 8px;
+  opacity: 0.7;
+}
+
+/* ── Public blog link ── */
+.public-blog-link {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.public-blog-link a {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: monospace;
+  font-size: 11px;
+}
+.public-blog-link a:hover { text-decoration: underline; }
 
 /* ── Tag pill ── */
 .tag-pill {

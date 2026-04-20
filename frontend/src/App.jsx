@@ -2,9 +2,16 @@ import { useState, useCallback } from 'react'
 import ChatWindow from './components/ChatWindow'
 import JournalPage from './components/JournalPage'
 import AuthModal from './components/AuthModal'
+import PublicBlog from './components/PublicBlog'
 import { useJournal } from './hooks/useJournal'
 import { useAuth } from './hooks/useAuth'
 import './App.css'
+
+// Simple client-side route detection
+function getPublicBlogUserId() {
+  const m = window.location.pathname.match(/^\/blog\/([^/]+)/)
+  return m ? m[1] : null
+}
 
 export default function App() {
   const [tab, setTab]           = useState('chat')
@@ -18,8 +25,14 @@ export default function App() {
   const { user, token, loading: authLoading, error: authError,
           register, login, logout, clearError } = useAuth(apiBase)
 
-  const { entries, saving, syncing, addEntry, deleteEntry,
+  const { entries, saving, syncing, addEntry, deleteEntry, togglePublic,
           exportMarkdown, exportJSON } = useJournal(sessionId, apiBase, token)
+
+  // Public blog route — render immediately, no auth needed
+  const blogUserId = getPublicBlogUserId()
+  if (blogUserId) {
+    return <PublicBlog userId={blogUserId} apiBase={apiBase} />
+  }
 
   // ── Chat ──────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text) => {
@@ -125,9 +138,9 @@ export default function App() {
         {tab === 'journal' && (
           <JournalPage
             onSave={addEntry} saving={saving} syncing={syncing}
-            entries={entries} onDelete={deleteEntry}
+            entries={entries} onDelete={deleteEntry} onTogglePublic={togglePublic}
             onExportMd={exportMarkdown} onExportJson={exportJSON}
-            isLoggedIn={!!user}
+            isLoggedIn={!!user} userId={user?.user_id}
             onLoginPrompt={() => setShowAuth(true)}
           />
         )}

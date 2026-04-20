@@ -155,3 +155,17 @@ def delete_entry(user_id: str, entry_id: str) -> list:
     entries = [e for e in load_user_journal(user_id) if e["id"] != entry_id]
     save_user_journal(user_id, entries)
     return entries
+
+
+def get_public_entries(user_id: str) -> list:
+    """Return only entries marked as public, sorted newest first."""
+    return [e for e in load_user_journal(user_id) if e.get("is_public")]
+
+
+def get_user_public_profile(user_id: str) -> dict:
+    users = _load_users()
+    u = users.get(user_id, {})
+    if not u:
+        return {}
+    # Return safe subset only
+    return {"user_id": user_id, "display_name": u.get("display_name") or u["email"].split("@")[0]}
