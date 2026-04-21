@@ -1,0 +1,54 @@
+---
+description: ZenTalk 日记模块开发约束
+globs:
+  - "backend/routers/journal.py"
+  - "frontend/src/components/JournalPage.jsx"
+  - "frontend/src/components/JournalCharts.jsx"
+  - "frontend/src/hooks/useJournal.js"
+alwaysApply: false
+---
+
+# ZenTalk 日记模块
+
+## 职责范围
+- 标签提取（`/journal/tags`）
+- 云端同步（`/journal/entries/*`）
+- 公开博客（`/public/{user_id}/*`）
+- 前端：日记录入、历史列表、图谱、演示模块
+
+## 文件边界
+**后端只改**：`backend/routers/journal.py`
+**前端只改**：`frontend/src/components/Journal*.jsx`、`frontend/src/hooks/useJournal.js`
+**不碰**：`backend/routers/chat.py`、`backend/routers/auth_routes.py`
+
+## 标签体系（不要随意增减，改动需同步前端颜色映射）
+- emotion：焦虑/平静/顿悟/喜悦/低落/愤怒/困惑/感恩/空/疲惫/兴奋/矛盾/满足/孤独/轻松/烦躁/期待
+- topic：自我/关系/工作/金钱/身体/时间/目标/创造/社会/学习/决策/习惯/记忆/家庭/项目/技术/写作/健康
+- operation：命名/重构/执念/放下/挖前提/边界/判断/观察/复盘/计划/感受/顿悟
+- timeview：过去/当下/未来/跨越
+- energy：高能/低谷/平稳/波动
+
+## 日记条目数据结构（不要改字段名，影响 localStorage 兼容性）
+```json
+{
+  "id": "uuid",
+  "created_at": "ISO8601",
+  "session_id": "可选，关联 ZenTalk 对话",
+  "scene": "", "feeling": "", "reflection": "", "raw": "",
+  "tags": { "emotion": [], "topic": [], "operation": [], "timeview": "", "energy": "", "keywords": [] },
+  "summary": "",
+  "is_public": false,
+  "zen_session_id": null,   ← 预留：关联对话
+  "zen_reply_id": null,     ← 预留：关联具体回复
+  "thread": null            ← 预留：关联线索
+}
+```
+
+## 与 3D 测验模块的关系
+- 测验结果可以写入日记（`topic: ["学习"]` + `operation: ["复盘"]`）
+- 接口：由 3D 模块 HTTP POST 到 `/api/journal/entries/sync`（需要 JWT token）
+
+## 标签提取模型参数
+- max_tokens: 3000（推理模型需要足够的思考空间）
+- temperature: 0.5
+- 降低 max_tokens 会导致推理 token 耗尽、content 为空
