@@ -30,6 +30,11 @@
   }
 }
 
+/* Tell iOS/iPadOS that this is a dark UI → candidate bar uses dark theme */
+:root {
+  color-scheme: dark;
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;

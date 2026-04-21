@@ -1,0 +1,133 @@
+---
+description: 腾讯云 CVM 自动化部署规范（mplusm.site 服务器）
+globs:
+  - "deploy/**"
+  - "scripts/deploy*.py"
+  - "backend/**"
+  - "frontend/**"
+alwaysApply: false
+---
+
+# 部署 Skill — mplusm.site 腾讯云 CVM
+
+## 服务器环境
+
+| 项目 | 值 |
+|------|----|
+| 系统 | OpenCloudOS 9.4（RHEL 系，用 `dnf` / `yum`，无 `apt`） |
+| 面板 | aaPanel（宝塔）|
+| Nginx | `/www/server/nginx/sbin/nginx`，vhost 目录 `/www/server/panel/vhost/nginx/` |
+| Web 根目录 | `/www/wwwroot/{domain}/` |
+| 应用目录 | `/opt/{project_name}/` |
+| Python | 3.11，pip 源为腾讯镜像 |
+| Node / PM2 | Node 20，PM2 全局已安装 |
+| SSL | certbot，证书在 `/etc/letsencrypt/live/{domain}/` |
+| DNS | 腾讯云 DNSPod，通过 API 配置 |
+
+## 标准部署流程
+
+所有新项目使用 `deploy/deploy.py --config deploy/project.conf`。
+
+```bash
+# 环境变量（敏感，不写进配置文件）
+export SERVER_PASS="..."
+export TENCENT_SECRET_ID="..."
+export TENCENT_SECRET_KEY="..."
+export XIAOMI_API_KEY="..."   # 或其他 API Key
+
+# 一键部署
+python3 deploy/deploy.py --config deploy/project.conf
+```
+
+脚本自动完成：DNS → 前端构建 → 文件上传 → PM2 启动 → certbot SSL → Nginx reload。
+
+## project.conf 模板
+
+```ini
+PROJECT_NAME="myapp"
+DOMAIN="myapp.mplusm.site"
+ADMIN_EMAIL="admin@mplusm.site"
+SERVER_IP="43.133.145.77"
+SERVER_USER="root"
+
+FRONTEND_TYPE="static"          # static | node | none
+FRONTEND_BUILD_DIR="frontend/dist"
+FRONTEND_BUILD_CMD="cd frontend && npm ci && npm run build"
+
+BACKEND_TYPE="python"           # python | node | none
+BACKEND_PORT="8766"             # 已用: 8765(zentalk)，新项目从 8766 递增
+BACKEND_DIR="backend"
+BACKEND_START_CMD="python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8766"
+BACKEND_INSTALL_CMD="pip3 install -r backend/requirements.txt -q"
+
+ENV_VARS="MY_API_KEY=${MY_API_KEY}"
+
+API_PREFIX="/api"
+```
+
+## 已占用端口（新项目避开）
+
+| 端口 | 项目 |
+|------|------|
+| 3456 | app.mplusm.site |
+| 8765 | zen.mplusm.site (ZenTalk) |
+
+**新项目从 8766 开始递增分配。**
+
+## SSH 连接方式（脚本内使用 paramiko）
+
+```python
+import paramiko
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh.connect("43.133.145.77", username="root",
+            password=os.environ["SERVER_PASS"], timeout=20)
+```
+
+**永远不要把密码硬编码进代码文件。** 通过 `os.environ["SERVER_PASS"]` 读取。
+
+## Nginx 操作
+
+```bash
+/www/server/nginx/sbin/nginx -t          # 测试配置
+/www/server/nginx/sbin/nginx -s reload   # 重载（不中断连接）
+```
+
+## PM2 操作
+
+```bash
+pm2 list                                  # 查看所有进程
+pm2 logs {name} --lines 50               # 查看日志
+pm2 restart {name}                        # 重启
+pm2 delete {name}                         # 删除
+pm2 save                                  # 持久化当前进程列表
+```
+
+## DNS 配置（腾讯云 DNSPod）
+
+使用 `scripts/dns_setup.py`，需要以下环境变量：
+- `TENCENT_SECRET_ID`
+- `TENCENT_SECRET_KEY`
+- `SERVER_IP`（可选，默认 43.133.145.77）
+
+## 快速热更新（仅改代码，不需完整部署）
+
+```python
+# 只上传 main.py 并重启
+sftp.put("backend/main.py", "/opt/{project}/backend/main.py")
+ssh.exec_command("pm2 restart {project}-backend")
+```
+
+## 常见问题排查
+
+| 现象 | 命令 |
+|------|------|
+| 502 Bad Gateway | `pm2 logs {name} --nostream --lines 30` |
+| 模块找不到 | 检查 `sys.path`，确保 backend 目录在路径上 |
+| 端口占用 | `ss -tlnp \| grep {port}` |
+| SSL 申请失败 | DNS 未生效，等 2 分钟再试；或 80 端口被占用 |
+| Nginx 配置错误 | `nginx -t` 查看具体行号 |
+
+## 说明文档
+
+详细规范见项目根目录 `DEPLOYMENT.md`。
