@@ -3,8 +3,10 @@ import ChatWindow from './components/ChatWindow'
 import JournalPage from './components/JournalPage'
 import AuthModal from './components/AuthModal'
 import PublicBlog from './components/PublicBlog'
+import DeckOverlay from './components/DeckOverlay'
 import { useJournal } from './hooks/useJournal'
 import { useAuth } from './hooks/useAuth'
+import { useDeck } from './hooks/useDeck'
 import './App.css'
 
 // Simple client-side route detection
@@ -27,6 +29,10 @@ export default function App() {
 
   const { entries, saving, syncing, addEntry, deleteEntry, togglePublic,
           exportMarkdown, exportJSON } = useJournal(sessionId, apiBase, token)
+
+  const { deckItems, deckOpen, setDeckOpen,
+          addToDeck, removeFromDeck, changeSlideType, reorder, clearDeck, isInDeck
+        } = useDeck()
 
   // Public blog route — render immediately, no auth needed
   const blogUserId = getPublicBlogUserId()
@@ -142,9 +148,29 @@ export default function App() {
             onExportMd={exportMarkdown} onExportJson={exportJSON}
             isLoggedIn={!!user} userId={user?.user_id}
             onLoginPrompt={() => setShowAuth(true)}
+            onAddToDeck={addToDeck} isInDeck={isInDeck}
           />
         )}
       </main>
+
+      {/* Floating deck button — visible on journal tab when items queued */}
+      {tab === 'journal' && deckItems.length > 0 && !deckOpen && (
+        <button className="deck-fab" onClick={() => setDeckOpen(true)}>
+          <span className="deck-fab-icon">◻</span>
+          演示
+          <span className="deck-fab-badge">{deckItems.length}</span>
+        </button>
+      )}
+
+      {deckOpen && (
+        <DeckOverlay
+          deckItems={deckItems}
+          onRemove={removeFromDeck}
+          onChangeType={changeSlideType}
+          onReorder={reorder}
+          onClose={() => setDeckOpen(false)}
+        />
+      )}
 
       {showAuth && (
         <AuthModal

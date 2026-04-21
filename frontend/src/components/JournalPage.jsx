@@ -27,7 +27,7 @@ function TagPill({ label, type }) {
   )
 }
 
-function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn }) {
+function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, inDeck }) {
   const [expanded, setExpanded] = useState(false)
   const d = new Date(entry.created_at)
   const dateStr = `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -86,6 +86,13 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn }) {
             </>
           )}
           <div className="entry-actions">
+            <button
+              className={`entry-deck-btn ${inDeck ? 'entry-deck-btn--on' : ''}`}
+              onClick={e => { e.stopPropagation(); if (!inDeck) onAddToDeck(entry) }}
+              title={inDeck ? '已加入演示' : '加入演示'}
+            >
+              {inDeck ? '◻ 已加入' : '◻ 演示'}
+            </button>
             {isLoggedIn && (
               <button
                 className={`entry-public-btn ${entry.is_public ? 'entry-public-btn--on' : ''}`}
@@ -224,7 +231,7 @@ function formatDateGroup(key) {
   return `${d.getMonth()+1}月${d.getDate()}日`
 }
 
-export default function JournalPage({ onSave, saving, syncing, entries, onDelete, onTogglePublic, onExportMd, onExportJson, isLoggedIn, userId, onLoginPrompt }) {
+export default function JournalPage({ onSave, saving, syncing, entries, onDelete, onTogglePublic, onExportMd, onExportJson, isLoggedIn, userId, onLoginPrompt, onAddToDeck, isInDeck }) {
   const [view, setView] = useState('list') // 'list' | 'charts'
   const groups = groupByDate(entries)
 
@@ -295,6 +302,8 @@ export default function JournalPage({ onSave, saving, syncing, entries, onDelete
                   onDelete={onDelete}
                   onTogglePublic={onTogglePublic}
                   isLoggedIn={isLoggedIn}
+                  onAddToDeck={onAddToDeck}
+                  inDeck={isInDeck(e.id)}
                 />
               ))}
             </div>

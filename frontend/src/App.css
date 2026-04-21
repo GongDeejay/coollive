@@ -141,6 +141,52 @@
   min-height: 0;
 }
 
+/* ── Deck floating action button ── */
+.deck-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  background: var(--accent);
+  color: #0f0f0f;
+  border: none;
+  border-radius: 24px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  z-index: 200;
+  transition: all 0.2s;
+  animation: fab-in 0.25s ease;
+}
+
+@keyframes fab-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.deck-fab:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+}
+
+.deck-fab-icon { font-size: 14px; }
+
+.deck-fab-badge {
+  background: #0f0f0f;
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 700;
+}
+
 /* ── Mobile: shrink nav text ── */
 @media (max-width: 400px) {
   .nav-tab { padding: 4px 10px; font-size: 12px; }
