@@ -8,22 +8,71 @@ const TEMPLATE_FIELDS = [
   { key: 'reflection', placeholder: '现在的体会……' },
 ]
 
+// ── Color maps ────────────────────────────────────────────────────
 const EMOTION_COLOR = {
   焦虑: '#c4855a', 平静: '#6a9b8a', 顿悟: '#c4a882',
   喜悦: '#8aaf6a', 低落: '#7a7a9a', 愤怒: '#9a5a5a',
   困惑: '#8a7a5a', 感恩: '#7a9a6a', 空: '#6a6a6a',
+  疲惫: '#8a6a5a', 兴奋: '#9aaf5a', 矛盾: '#8a6a9a',
+  满足: '#6a9a7a', 孤独: '#6a6a8a', 轻松: '#6a9a8a', 烦躁: '#9a6a5a',
 }
 
-const ENERGY_COLOR = { 高能: '#6a9b6a', 低谷: '#9a5a5a', 平稳: '#8a8a6a' }
+// ── Layer config: label, short prefix, color class ────────────────
+const LAYER_META = {
+  object:      { label: '对象', cls: 'tag-layer-object' },
+  operation:   { label: '动作', cls: 'tag-layer-operation' },
+  tension:     { label: '张力', cls: 'tag-layer-tension' },
+  output_form: { label: '输出', cls: 'tag-layer-output' },
+  emotion:     { label: '情绪', cls: 'tag-layer-emotion' },
+}
 
-function TagPill({ label, type }) {
-  const color = type === 'emotion' ? EMOTION_COLOR[label]
-    : type === 'energy' ? ENERGY_COLOR[label]
-    : undefined
+function TagPill({ label, layer }) {
+  const meta = LAYER_META[layer] || {}
+  const emotionColor = layer === 'emotion' ? EMOTION_COLOR[label] : undefined
   return (
-    <span className="tag-pill" style={color ? { borderColor: color, color } : {}}>
-      #{label}
+    <span
+      className={`tag-pill ${meta.cls || ''}`}
+      style={emotionColor ? { borderColor: emotionColor, color: emotionColor } : {}}
+    >
+      {label}
     </span>
+  )
+}
+
+// Compact tag row shown in collapsed card header
+function TagRowCompact({ tags }) {
+  if (!tags) return null
+  return (
+    <div className="entry-tags-row">
+      {tags.emotion?.slice(0, 2).map(t => <TagPill key={t} label={t} layer="emotion" />)}
+      {tags.object?.slice(0, 2).map(t => <TagPill key={t} label={t} layer="object" />)}
+      {tags.tension?.slice(0, 1).map(t => <TagPill key={t} label={t} layer="tension" />)}
+    </div>
+  )
+}
+
+// Full four-layer tag block shown in expanded card
+function TagLayerBlock({ tags }) {
+  if (!tags) return null
+  const layers = [
+    { key: 'object',      items: tags.object      || [] },
+    { key: 'operation',   items: tags.operation   || [] },
+    { key: 'tension',     items: tags.tension     || [] },
+    { key: 'output_form', items: tags.output_form || [] },
+    { key: 'emotion',     items: tags.emotion     || [] },
+  ].filter(l => l.items.length > 0)
+
+  return (
+    <div className="tag-layer-block">
+      {layers.map(({ key, items }) => (
+        <div key={key} className="tag-layer-row">
+          <span className="tag-layer-label">{LAYER_META[key]?.label}</span>
+          <div className="tag-layer-pills">
+            {items.map(t => <TagPill key={t} label={t} layer={key} />)}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -41,14 +90,7 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, i
         <span className="entry-date">{dateStr}</span>
         <div className="entry-header-right">
           {entry.is_public && <span className="entry-public-badge">公开</span>}
-          {entry.tags && (
-            <div className="entry-tags-row">
-              {entry.tags.emotion?.map(t => <TagPill key={t} label={t} type="emotion" />)}
-              {entry.tags.topic?.slice(0, 2).map(t => <TagPill key={t} label={t} />)}
-              <TagPill label={entry.tags.energy} type="energy" />
-            </div>
-          )}
-          {!entry.tags && <span className="entry-tagging">分析中…</span>}
+          {entry.tags ? <TagRowCompact tags={entry.tags} /> : <span className="entry-tagging">分析中…</span>}
         </div>
       </div>
 
@@ -69,13 +111,7 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, i
           )}
           {entry.tags && (
             <>
-              <div className="entry-all-tags">
-                {entry.tags.emotion?.map(t => <TagPill key={t} label={t} type="emotion" />)}
-                {entry.tags.topic?.map(t => <TagPill key={t} label={t} />)}
-                {entry.tags.operation?.map(t => <TagPill key={t} label={t} />)}
-                <TagPill label={entry.tags.timeview} />
-                <TagPill label={entry.tags.energy} type="energy" />
-              </div>
+              <TagLayerBlock tags={entry.tags} />
               {entry.tags.keywords?.length > 0 && (
                 <div className="entry-keywords">
                   {entry.tags.keywords.map(k => (

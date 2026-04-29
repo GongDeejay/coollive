@@ -75,7 +75,18 @@ export function useJournal(sessionId, apiBase, token) {
       })
       if (res.ok) {
         const data = await res.json()
-        const updated = { ...entry, tags: data, summary: data.summary }
+        // Normalize: new four-layer response + keep legacy fields for compat
+        const tags = {
+          // Four layers
+          object:      data.object      || [],
+          operation:   data.operation   || [],
+          tension:     data.tension     || [],
+          output_form: data.output_form || [],
+          // Auxiliary
+          emotion:     data.emotion     || [],
+          keywords:    data.keywords    || [],
+        }
+        const updated = { ...entry, tags, summary: data.summary }
         setEntries(prev => prev.map(e => e.id === entry.id ? updated : e))
 
         // Sync to cloud if logged in

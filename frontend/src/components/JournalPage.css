@@ -490,7 +490,7 @@
 }
 .public-blog-link a:hover { text-decoration: underline; }
 
-/* ── Tag pill ── */
+/* ── Tag pill (base) ── */
 .tag-pill {
   font-size: 11px;
   color: var(--text-secondary);
@@ -498,4 +498,43 @@
   border-radius: 10px;
   padding: 1px 7px;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ── Layer-specific pill colors ── */
+.tag-layer-object    { color: #7a9aaf; border-color: #2a3a4a; }
+.tag-layer-operation { color: #9aaf7a; border-color: #2a3a2a; }
+.tag-layer-tension   { color: #af8a7a; border-color: #3a2a2a; }
+.tag-layer-output    { color: #c4a882; border-color: #3a3020; }
+/* emotion colors are set inline via EMOTION_COLOR map */
+
+/* ── Four-layer block (expanded view) ── */
+.tag-layer-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.tag-layer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tag-layer-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.4;
+  width: 28px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  letter-spacing: 0.04em;
+}
+
+.tag-layer-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
