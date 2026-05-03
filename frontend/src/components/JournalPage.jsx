@@ -17,6 +17,10 @@ const EMOTION_COLOR = {
   满足: '#6a9a7a', 孤独: '#6a6a8a', 轻松: '#6a9a8a', 烦躁: '#9a6a5a',
 }
 
+// ── Quadrant display helpers ──────────────────────────────────────
+const QUADRANT_COLORS = { Others: '#7a9aaf', Self: '#c4a882', Task: '#9aaf7a', World: '#af8a7a' }
+const QUADRANT_LABELS = { Others: '对人', Self: '对己', Task: '对事', World: '对世' }
+
 // ── Layer config: label, short prefix, color class ────────────────
 const LAYER_META = {
   object:      { label: '对象', cls: 'tag-layer-object' },
@@ -120,6 +124,19 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, i
                 </div>
               )}
             </>
+          )}
+          {entry.quadrant && (
+            <div className="entry-quadrant">
+              <span className="entry-quadrant-dim"
+                style={{ color: QUADRANT_COLORS[entry.quadrant.dim] }}>
+                {QUADRANT_LABELS[entry.quadrant.dim]}
+              </span>
+              <span className="entry-quadrant-val">
+                {entry.quadrant.value > 0 ? '+' : ''}{entry.quadrant.value}
+              </span>
+              <span className="entry-quadrant-energy">⚡{entry.quadrant.energy}</span>
+              <span className="entry-quadrant-reason">{entry.quadrant.reason}</span>
+            </div>
           )}
           <div className="entry-actions">
             <button

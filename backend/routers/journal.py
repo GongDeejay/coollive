@@ -133,6 +133,114 @@ async def extract_journal_tags(req: JournalTagRequest):
     )
 
 
+# ── Quadrant analysis ──────────────────────────────────────────────
+QUADRANT_PROMPT = """你是一个四维反思分析系统。阅读用户的日记，输出结构化坐标数据。
+
+━━ 四个维度定义 ━━
+
+【对人 Others】处理与他人的关系、沟通、冲突、期待与边界
+  典型词：理解、包容、生气、沟通、拒绝、帮助、被消耗、朋友、同事、家人
+
+【对己 Self】处理自我认知、情绪消化、个人目标、欲望与恐惧
+  典型词：焦虑、觉察、自省、懒惰、目标、计划、自律、放纵、枷锁、接纳
+
+【对事 Task】处理具体工作、技能、逻辑推演、方法论
+  典型词：系统、架构、推演、方法、项目、进度、部署、流程、效率
+
+【对世 World】处理对社会规律的认知、宏大价值、时代、意义感
+  典型词：时代、意义、社会、传承、无力、宏大、布道、改变世界、规律、命运
+
+━━ 极性标尺（Value: -5 到 +5）━━
+原点 0 = 中道（无执、无评判、能量最低）
+正数 = 阳极：构建 / 介入 / 秩序 / 原则
+负数 = 阴极：顺应 / 体验 / 消解 / 放松
+
+对人轴：+5强烈愤怒指责 / +3理性设边界 / 0温和观照 / -3退让压抑 / -5无底线顺从
+对己轴：+5严重自我苛责 / +3清晰目标自律 / 0觉知自洽 / -3接受软弱 / -5精神涣散
+对事轴：+5极度求确定性 / +3严密逻辑推演 / 0专注顺势心流 / -3感性随性 / -5情绪化混乱
+对世轴：+5执念改变世界 / +3入世使命感 / 0尽人事听天命 / -3无力感旁观 / -5虚无冷漠
+
+━━ 能量值（Energy: 10 到 50）━━
+10-15 微风：平静顺畅的思考或顿悟
+16-25 波浪：明确脑力付出或轻微情绪起伏
+26-35 暗流：强使命感冲击，或果断的自我防御
+36-50 风暴：本能冲动被理性压制，或深刻存在主义焦虑
+
+━━ 规则 ━━
+1. 只选最主导的一个维度（dim）
+2. 如有明显次要维度填 secondary_dim，否则 null
+3. value 整数 -5 到 +5；energy 整数 10 到 50
+4. reason 一句话 ≤20字说明定位依据
+只返回JSON，不要其他文字：
+{"dim":"Self","value":3,"energy":28,"secondary_dim":"Task","reason":"有清晰自律意志但带焦虑"}
+
+━━ 四个校准示例 ━━
+输入：今天帮朋友处理了很多事，感觉掏空了，但又不好意思拒绝。
+输出：{"dim":"Others","value":-3,"energy":32,"secondary_dim":"Self","reason":"为关系退让，压抑自身需求"}
+
+输入：项目终于上线了，很爽。最难的是一直推进的意志力，不是技术。
+输出：{"dim":"Task","value":3,"energy":22,"secondary_dim":"Self","reason":"系统推进完成，伴随自律满足感"}
+
+输入：我总在最重要的事上拖延，用次要事情填满时间，感觉很忙但什么都没推进。
+输出：{"dim":"Self","value":4,"energy":38,"secondary_dim":"Task","reason":"强烈自我苛责，意识到执念但无法摆脱"}
+
+输入：AI时代来了，大部分人根本没意识到个体能做什么。有种布道的冲动。
+输出：{"dim":"World","value":4,"energy":30,"secondary_dim":null,"reason":"入世使命感，想传播认知但带执念"}"""
+
+
+class QuadrantRequest(BaseModel):
+    scene: Optional[str] = None
+    feeling: Optional[str] = None
+    reflection: Optional[str] = None
+    raw: Optional[str] = None
+
+
+class QuadrantResponse(BaseModel):
+    dim: str
+    value: int        # -5 to +5
+    energy: int       # 10 to 50
+    secondary_dim: Optional[str] = None
+    reason: str
+
+
+@router.post("/journal/quadrant", response_model=QuadrantResponse)
+async def analyze_quadrant(req: QuadrantRequest):
+    parts = [p for p in [req.scene, req.feeling, req.reflection, req.raw] if p]
+    text = "\n".join(parts)
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="内容不能为空")
+
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": QUADRANT_PROMPT},
+                {"role": "user", "content": text[:1200]},
+            ],
+            max_tokens=3000,
+            temperature=0.3,
+        )
+        raw_out = resp.choices[0].message.content.strip()
+        m = _re.search(r'\{.*\}', raw_out, _re.DOTALL)
+        data = json.loads(m.group()) if m else {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"四维分析失败: {str(e)}")
+
+    dim = data.get("dim", "Self")
+    if dim not in ("Others", "Self", "Task", "World"):
+        dim = "Self"
+    value = max(-5, min(5, int(data.get("value", 0))))
+    energy = max(10, min(50, int(data.get("energy", 20))))
+    secondary = data.get("secondary_dim")
+    if secondary not in (None, "Others", "Self", "Task", "World"):
+        secondary = None
+
+    return QuadrantResponse(
+        dim=dim, value=value, energy=energy,
+        secondary_dim=secondary, reason=data.get("reason", ""),
+    )
+
+
 # ── Cloud journal CRUD ─────────────────────────────────────────────
 @router.get("/journal/entries")
 def get_journal_entries(authorization: Optional[str] = Header(default=None)):

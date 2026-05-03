@@ -14,10 +14,9 @@ export function useJournal(sessionId, apiBase, token) {
   const [saving, setSaving]   = useState(false)
   const [syncing, setSyncing] = useState(false)
 
-  // Sync localStorage whenever entries change
   useEffect(() => { saveLocal(entries) }, [entries])
 
-  // When user logs in, fetch cloud entries and merge (cloud wins for same id)
+  // Login: fetch cloud and merge
   useEffect(() => {
     if (!token) return
     setSyncing(true)
@@ -32,7 +31,6 @@ export function useJournal(sessionId, apiBase, token) {
           const sorted = Object.values(merged).sort((a, b) =>
             new Date(b.created_at) - new Date(a.created_at)
           )
-          // Push any local-only entries to cloud
           prev.forEach(e => {
             if (!cloudMap[e.id]) {
               fetch(`${apiBase}/journal/entries/sync`, {
@@ -60,6 +58,7 @@ export function useJournal(sessionId, apiBase, token) {
       raw: raw || '',
       tags: null,
       summary: '',
+      quadrant: null,    // { dim, value, energy, secondary_dim, reason }
       zen_session_id: null,
       zen_reply_id: null,
     }
@@ -67,38 +66,49 @@ export function useJournal(sessionId, apiBase, token) {
     setEntries(prev => [entry, ...prev])
     setSaving(true)
 
+    // Extract tags + quadrant in parallel
     try {
-      const res = await fetch(`${apiBase}/journal/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scene, feeling, reflection, content: raw }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        // Normalize: new four-layer response + keep legacy fields for compat
-        const tags = {
-          // Four layers
-          object:      data.object      || [],
-          operation:   data.operation   || [],
-          tension:     data.tension     || [],
-          output_form: data.output_form || [],
-          // Auxiliary
-          emotion:     data.emotion     || [],
-          keywords:    data.keywords    || [],
-        }
-        const updated = { ...entry, tags, summary: data.summary }
-        setEntries(prev => prev.map(e => e.id === entry.id ? updated : e))
+      const headers = { 'Content-Type': 'application/json' }
+      const tagBody  = JSON.stringify({ scene, feeling, reflection, content: raw })
+      const quadBody = JSON.stringify({ scene, feeling, reflection, raw })
 
-        // Sync to cloud if logged in
-        if (token) {
-          fetch(`${apiBase}/journal/entries/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ entry: updated }),
-          }).catch(() => {})
+      const [tagsRes, quadRes] = await Promise.allSettled([
+        fetch(`${apiBase}/journal/tags`,     { method: 'POST', headers, body: tagBody }),
+        fetch(`${apiBase}/journal/quadrant`, { method: 'POST', headers, body: quadBody }),
+      ])
+
+      let tags     = null
+      let summary  = ''
+      let quadrant = null
+
+      if (tagsRes.status === 'fulfilled' && tagsRes.value.ok) {
+        const d = await tagsRes.value.json()
+        tags = {
+          object:      d.object      || [],
+          operation:   d.operation   || [],
+          tension:     d.tension     || [],
+          output_form: d.output_form || [],
+          emotion:     d.emotion     || [],
+          keywords:    d.keywords    || [],
         }
+        summary = d.summary || ''
       }
-    } catch { /* tags remain null */ }
+
+      if (quadRes.status === 'fulfilled' && quadRes.value.ok) {
+        quadrant = await quadRes.value.json()
+      }
+
+      const updated = { ...entry, tags, summary, quadrant }
+      setEntries(prev => prev.map(e => e.id === entry.id ? updated : e))
+
+      if (token) {
+        fetch(`${apiBase}/journal/entries/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ entry: updated }),
+        }).catch(() => {})
+      }
+    } catch { /* analysis remains null */ }
     finally { setSaving(false) }
 
     return entry.id
@@ -116,10 +126,7 @@ export function useJournal(sessionId, apiBase, token) {
 
   const togglePublic = useCallback((id) => {
     setEntries(prev => {
-      const updated = prev.map(e =>
-        e.id === id ? { ...e, is_public: !e.is_public } : e
-      )
-      // Sync to cloud if logged in
+      const updated = prev.map(e => e.id === id ? { ...e, is_public: !e.is_public } : e)
       if (token) {
         const entry = updated.find(e => e.id === id)
         if (entry) {
@@ -138,11 +145,14 @@ export function useJournal(sessionId, apiBase, token) {
     const lines = entries.map(e => {
       const d = new Date(e.created_at)
       const dt = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
-      const tags = e.tags
-        ? `#${[...e.tags.emotion, ...e.tags.topic, ...e.tags.operation, e.tags.timeview, e.tags.energy].join(' #')}`
+      const tagStr = e.tags
+        ? [...(e.tags.emotion||[]), ...(e.tags.object||[]), ...(e.tags.operation||[])].map(t=>'#'+t).join(' ')
+        : ''
+      const quadStr = e.quadrant
+        ? `[${e.quadrant.dim} ${e.quadrant.value>0?'+':''}${e.quadrant.value} ⚡${e.quadrant.energy}]`
         : ''
       return [
-        `## ${dt}`, tags, '',
+        `## ${dt} ${quadStr}`, tagStr, '',
         e.scene      ? `**场景：** ${e.scene}` : '',
         e.feeling    ? `**感受：** ${e.feeling}` : '',
         e.reflection ? `**体会：** ${e.reflection}` : '',
