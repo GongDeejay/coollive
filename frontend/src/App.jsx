@@ -149,7 +149,6 @@ export default function App() {
             isLoggedIn={!!user} userId={user?.user_id}
             onLoginPrompt={() => setShowAuth(true)}
             onAddToDeck={addToDeck} isInDeck={isInDeck}
-            analyzeHistorical={analyzeHistorical}
           />
         )}
       </main>

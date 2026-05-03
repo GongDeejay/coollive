@@ -284,10 +284,8 @@ function formatDateGroup(key) {
   return `${d.getMonth()+1}月${d.getDate()}日`
 }
 
-export default function JournalPage({ onSave, saving, syncing, entries, onDelete, onTogglePublic, onExportMd, onExportJson, isLoggedIn, userId, onLoginPrompt, onAddToDeck, isInDeck, analyzeHistorical }) {
-  const [view, setView] = useState('list')
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analyzeProgress, setAnalyzeProgress] = useState({ done: 0, total: 0 }) // 'list' | 'charts'
+export default function JournalPage({ onSave, saving, syncing, entries, onDelete, onTogglePublic, onExportMd, onExportJson, isLoggedIn, userId, onLoginPrompt, onAddToDeck, isInDeck }) {
+  const [view, setView] = useState('list') // 'list' | 'charts'
   const groups = groupByDate(entries)
 
   const handleExport = (type) => {
@@ -301,17 +299,6 @@ export default function JournalPage({ onSave, saving, syncing, entries, onDelete
     a.download = `zentalk-journal-${new Date().toISOString().slice(0,10)}.${ext}`
     a.click()
     URL.revokeObjectURL(url)
-  }
-
-  const handleAnalyze = async () => {
-    if (analyzing || !analyzeHistorical) return
-    const pending = entries.filter(e => !e.quadrant && (e.scene || e.feeling || e.reflection || e.raw))
-    if (pending.length === 0) return
-    setAnalyzing(true)
-    setAnalyzeProgress({ done: 0, total: pending.length })
-    await analyzeHistorical((done, total) => setAnalyzeProgress({ done, total }))
-    setAnalyzing(false)
-    setAnalyzeProgress({ done: 0, total: 0 })
   }
 
   return (
@@ -378,30 +365,7 @@ export default function JournalPage({ onSave, saving, syncing, entries, onDelete
       )}
 
       {view === 'charts' && (
-        <div className="charts-section">
-          {(() => {
-            const pending = entries.filter(e => !e.quadrant && (e.scene || e.feeling || e.reflection || e.raw))
-            if (pending.length > 0 && !analyzing) return (
-              <div className="analyze-banner">
-                <span>{pending.length} 条记录尚未四维分析</span>
-                <button className="analyze-btn" onClick={handleAnalyze}>
-                  分析历史记录 →
-                </button>
-              </div>
-            )
-            if (analyzing) return (
-              <div className="analyze-progress">
-                <div className="analyze-progress-bar"
-                  style={{ width: analyzeProgress.total > 0
-                    ? (analyzeProgress.done / analyzeProgress.total * 100) + '%'
-                    : '0%' }} />
-                <span>正在分析 {analyzeProgress.done} / {analyzeProgress.total}…</span>
-              </div>
-            )
-            return null
-          })()}
-          <JournalCharts entries={entries} />
-        </div>
+        <JournalCharts entries={entries} />
       )}
     </div>
   )

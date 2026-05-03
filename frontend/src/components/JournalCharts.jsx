@@ -238,8 +238,7 @@ function drawDonut(ctx, W, H, entries, field) {
 
 // ── Quadrant charts ─────────────────────────────────────────────────
 
-
-// ---- Middle Way Chart (中道平衡图) ----
+// Pole labels for each dimension
 const DIM_POLES = {
   Others: { neg: '无界顺从', pos: '强硬控制', mid: '温和悲悯' },
   Self:   { neg: '涣散摆烂', pos: '严苛内耗', mid: '觉知自洽' },
@@ -247,12 +246,15 @@ const DIM_POLES = {
   World:  { neg: '虚无避世', pos: '执念布道', mid: '为而不持' },
 }
 
+// Middle-Way balance chart: horizontal dual-polarity bars
+// Each row = one dimension. Center = 中道. Bar extends left (yin) or right (yang).
 function drawMiddleWay(ctx, W, H, entries) {
   const qe = entries.filter(e => e.quadrant)
   if (!qe.length) {
     ctx.fillStyle = TEXT_DIM; ctx.font = '13px sans-serif'
     ctx.textAlign = 'center'; ctx.fillText('记录更多条目后显示', W / 2, H / 2); return
   }
+
   const stats = {}
   DIMS.forEach(d => { stats[d] = { sum: 0, count: 0 } })
   qe.forEach(e => {
@@ -264,18 +266,17 @@ function drawMiddleWay(ctx, W, H, entries) {
   const BARA = W - LW * 2 - PX * 2
   const CX = PX + LW + BARA / 2
   const HALF = BARA / 2
-  const RH = (H - 28) / 4
-  const BH = Math.min(RH * 0.32, 15)
+  const RH = (H - 24) / 4
+  const BH = Math.min(RH * 0.30, 13)
 
   ctx.fillStyle = TEXT_DIM; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'
-  ctx.fillText('阴极(顺应)  --------  中道  --------  阳极(建构)', CX, 13)
+  ctx.fillText('阴极(顺应) ─────── 中道 ─────── 阳极(建构)', CX, 13)
 
   DIMS.forEach((d, i) => {
     const { label, color } = DIM_CONFIG[d]
     const poles = DIM_POLES[d]
-    const ty = 24 + i * RH + RH / 2
+    const ty = 22 + i * RH + RH / 2
     const avg = stats[d].count ? stats[d].sum / stats[d].count : null
-    const n = stats[d].count
 
     ctx.fillStyle = color + '09'
     ctx.fillRect(PX, ty - RH * 0.46, W - PX * 2, RH * 0.92)
@@ -283,7 +284,7 @@ function drawMiddleWay(ctx, W, H, entries) {
     ctx.strokeStyle = DIM_COLOR + '22'; ctx.lineWidth = 0.5
     ctx.beginPath(); ctx.moveTo(PX + LW, ty); ctx.lineTo(W - PX - LW, ty); ctx.stroke()
 
-    ctx.setLineDash([2, 3]); ctx.strokeStyle = color + '50'; ctx.lineWidth = 1.5
+    ctx.setLineDash([2, 3]); ctx.strokeStyle = color + '55'; ctx.lineWidth = 1.5
     ctx.beginPath(); ctx.moveTo(CX, ty - RH * 0.42); ctx.lineTo(CX, ty + RH * 0.42); ctx.stroke()
     ctx.setLineDash([])
 
@@ -294,10 +295,12 @@ function drawMiddleWay(ctx, W, H, entries) {
     ctx.fillText(poles.pos, W - PX - LW + 3, ty)
 
     ctx.fillStyle = color + '70'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center'
-    ctx.fillText(poles.mid, CX, ty - BH - 5)
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(poles.mid, CX, ty - BH - 4)
 
     ctx.fillStyle = color; ctx.font = 'bold 11px sans-serif'
-    ctx.fillText(label, CX, ty + BH + 11)
+    ctx.textBaseline = 'top'
+    ctx.fillText(label, CX, ty + BH + 4)
 
     if (avg !== null) {
       const barLen = Math.abs(avg) / 5 * HALF
@@ -311,7 +314,7 @@ function drawMiddleWay(ctx, W, H, entries) {
       ctx.fillRect(bx, ty - BH / 2, barLen, BH)
 
       const dotX = CX + (avg / 5) * HALF
-      ctx.beginPath(); ctx.arc(dotX, ty, 5.5, 0, Math.PI * 2)
+      ctx.beginPath(); ctx.arc(dotX, ty, 5, 0, Math.PI * 2)
       ctx.fillStyle = color; ctx.fill()
       ctx.strokeStyle = '#111'; ctx.lineWidth = 1; ctx.stroke()
 
@@ -321,7 +324,7 @@ function drawMiddleWay(ctx, W, H, entries) {
       ctx.fillText(sign + avg.toFixed(1), dotX, ty - BH / 2 - 2)
 
       ctx.fillStyle = TEXT_DIM; ctx.font = '9px sans-serif'; ctx.textBaseline = 'top'
-      ctx.fillText(n + '条', dotX, ty + BH / 2 + 2)
+      ctx.fillText(stats[d].count + '条', dotX, ty + BH / 2 + 2)
     } else {
       ctx.fillStyle = TEXT_DIM + '50'; ctx.font = '10px sans-serif'
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -563,8 +566,10 @@ export default function JournalCharts({ entries }) {
           </div>
         ) : (
           <>
-            <Chart title="四维中道平衡图（双极偏离度）"
-              drawFn={drawMiddleWay} entries={entries} height={270} />
+            <Chart title="四维中道平衡图"
+              drawFn={drawMiddleWay} entries={entries} height={260} />
+            <Chart title="四维均值雷达"
+              drawFn={drawRadar} entries={entries} height={240} />
             <Chart title="四维时间轨迹（点大小=能量强度）"
               drawFn={drawTimeScatter} entries={entries} height={220} />
             <Chart title="能量分布（按维度）"
