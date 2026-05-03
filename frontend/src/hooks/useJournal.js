@@ -141,6 +141,39 @@ export function useJournal(sessionId, apiBase, token) {
     })
   }, [apiBase, token])
 
+
+  const analyzeHistorical = async (onProgress) => {
+    const pending = entries.filter(e => !e.quadrant && (e.scene || e.feeling || e.reflection || e.raw))
+    const total = pending.length
+    if (total === 0) return 0
+    let done = 0
+    for (const entry of pending) {
+      try {
+        const res = await fetch(`${apiBase}/journal/quadrant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scene: entry.scene, feeling: entry.feeling, reflection: entry.reflection, raw: entry.raw }),
+        })
+        if (res.ok) {
+          const quadrant = await res.json()
+          const updated = { ...entry, quadrant }
+          setEntries(prev => prev.map(e => e.id === entry.id ? updated : e))
+          if (token) {
+            fetch(`${apiBase}/journal/entries/sync`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ entry: updated }),
+            }).catch(() => {})
+          }
+        }
+      } catch { /* continue */ }
+      done++
+      if (onProgress) onProgress(done, total)
+      await new Promise(r => setTimeout(r, 400))
+    }
+    return done
+  }
+
   const exportMarkdown = useCallback(() => {
     const lines = entries.map(e => {
       const d = new Date(e.created_at)
@@ -165,5 +198,5 @@ export function useJournal(sessionId, apiBase, token) {
 
   const exportJSON = useCallback(() => JSON.stringify(entries, null, 2), [entries])
 
-  return { entries, saving, syncing, addEntry, deleteEntry, togglePublic, exportMarkdown, exportJSON }
+  return { entries, saving, syncing, addEntry, deleteEntry, togglePublic, analyzeHistorical, exportMarkdown, exportJSON }
 }
