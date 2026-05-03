@@ -77,8 +77,12 @@
   margin-bottom: 10px;
 }
 
-.chart-canvas {
+.chart-wrap {
   width: 100%;
   display: block;
-  border-radius: 4px;
+}
+
+.chart-wrap canvas {
+  display: block;
+  width: 100%;
 }
