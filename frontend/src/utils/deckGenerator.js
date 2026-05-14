@@ -85,24 +85,91 @@ function slideKeywords({ entry }) {
     </div>`
 }
 
-function buildSlideHtml(item) {
-  switch (item.slideType) {
-    case 'quote':    return slideQuote(item)
-    case 'content':  return slideContent(item)
-    case 'keywords': return slideKeywords(item)
-    default:         return slideQuote(item)
+// ── Special slide generators ───────────────────────────────────────
+
+function slideDivider(item) {
+  return `
+    <div class="slide slide-divider" data-type="divider">
+      <div class="divider-inner">
+        <div class="divider-line"></div>
+        <h2 class="divider-title">${escapeHtml(item.text || '章节')}</h2>
+        ${item.subtitle ? `<p class="divider-sub">${escapeHtml(item.subtitle)}</p>` : ''}
+        <div class="divider-line"></div>
+      </div>
+    </div>`
+}
+
+function slideEnd(item) {
+  return `
+    <div class="slide slide-end" data-type="end">
+      <div class="end-inner">
+        <div class="end-logo">
+          <div class="logo-circle"></div>
+        </div>
+        <h1 class="end-text">${escapeHtml(item.text || '谢谢')}</h1>
+        ${item.subtitle ? `<p class="end-sub">${escapeHtml(item.subtitle)}</p>` : ''}
+      </div>
+    </div>`
+}
+
+function slideToc(allItems, deckTitle) {
+  const entryItems = allItems.filter(i => i.kind === 'entry')
+  const rows = entryItems.map((item, idx) => {
+    const label = item.entry.summary || item.entry.reflection || item.entry.scene || item.entry.raw || ''
+    return `<li class="toc-item"><span class="toc-num">${idx + 1}</span><span class="toc-label">${escapeHtml(label.slice(0, 50))}</span></li>`
+  }).join('\n        ')
+  return `
+    <div class="slide slide-toc" data-type="toc">
+      <div class="toc-inner">
+        <h2 class="toc-heading">目录</h2>
+        <ul class="toc-list">
+        ${rows}
+        </ul>
+      </div>
+    </div>`
+}
+
+function buildSlideHtml(item, allItems) {
+  if (item.kind === 'special' || !item.kind || item.kind === 'entry') {
+    if (!item.kind || item.kind === 'entry') {
+      switch (item.slideType) {
+        case 'quote':    return slideQuote(item)
+        case 'content':  return slideContent(item)
+        case 'keywords': return slideKeywords(item)
+        default:         return slideQuote(item)
+      }
+    }
+  }
+  switch (item.kind) {
+    case 'entry':   {
+      switch (item.slideType) {
+        case 'content':  return slideContent(item)
+        case 'keywords': return slideKeywords(item)
+        default:         return slideQuote(item)
+      }
+    }
+    case 'divider': return slideDivider(item)
+    case 'end':     return slideEnd(item)
+    case 'toc':     return slideToc(allItems)
+    case 'cover':   return slideCover(item.text || '', item.subtitle || '')
+    default:        return slideQuote({ entry: { summary: '', created_at: new Date().toISOString() } })
   }
 }
 
 // ── Full HTML template ─────────────────────────────────────────────
 
 export function generateDeckHtml({ title, subtitle, items }) {
-  const slidesHtml = [
-    slideCover(title, subtitle),
-    ...items.map(buildSlideHtml),
+  // Check if user manually added a cover or end slide
+  const hasCover = items.some(i => i.kind === 'cover')
+  const hasEnd   = items.some(i => i.kind === 'end')
+
+  const allSlides = [
+    ...(hasCover ? [] : [slideCover(title, subtitle)]),
+    ...items.map(item => buildSlideHtml(item, items)),
   ].join('\n')
 
-  const total = items.length + 1
+  const total = items.length + (hasCover ? 0 : 1)
+  const slidesHtml = allSlides
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -164,6 +231,83 @@ html, body {
 .slide.exit-left {
   opacity: 0;
   transform: translateX(-60px);
+}
+
+/* ── Divider ── */
+.slide-divider { background: var(--bg); }
+.divider-inner { text-align: center; max-width: 600px; }
+.divider-line {
+  width: 40px; height: 1px;
+  background: var(--accent);
+  margin: 20px auto;
+  opacity: 0.5;
+}
+.divider-title {
+  font-family: var(--serif);
+  font-size: clamp(24px, 4vw, 48px);
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.06em;
+}
+.divider-sub {
+  margin-top: 12px;
+  font-size: clamp(13px, 1.8vw, 18px);
+  color: var(--dim);
+  letter-spacing: 0.04em;
+}
+
+/* ── End page ── */
+.slide-end { background: var(--bg); }
+.end-inner { text-align: center; max-width: 500px; }
+.end-logo {
+  margin-bottom: 28px;
+}
+.end-text {
+  font-family: var(--serif);
+  font-size: clamp(28px, 5vw, 56px);
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+.end-sub {
+  margin-top: 16px;
+  font-size: clamp(12px, 1.8vw, 18px);
+  color: var(--dim);
+}
+
+/* ── TOC ── */
+.slide-toc { background: var(--bg); }
+.toc-inner { max-width: 640px; width: 100%; }
+.toc-heading {
+  font-family: var(--serif);
+  font-size: clamp(14px, 2vw, 22px);
+  font-weight: 300;
+  color: var(--dim);
+  letter-spacing: 0.12em;
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+.toc-list { list-style: none; }
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.toc-num {
+  font-size: clamp(11px, 1.4vw, 14px);
+  color: var(--accent);
+  opacity: 0.7;
+  min-width: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.toc-label {
+  font-family: var(--serif);
+  font-size: clamp(14px, 2vw, 20px);
+  color: var(--text);
+  opacity: 0.85;
+  line-height: 1.4;
 }
 
 /* ── Cover ── */

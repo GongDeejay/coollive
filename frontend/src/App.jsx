@@ -30,9 +30,13 @@ export default function App() {
   const { entries, saving, syncing, addEntry, deleteEntry, togglePublic,
           exportMarkdown, exportJSON } = useJournal(sessionId, apiBase, token)
 
-  const { deckItems, deckOpen, setDeckOpen,
-          addToDeck, removeFromDeck, changeSlideType, reorder, clearDeck, isInDeck
-        } = useDeck()
+  const {
+    deckItems, deckOpen, setDeckOpen,
+    addToDeck, removeFromDeck, changeSlideType, reorder,
+    addSpecialSlide, updateSpecialSlide,
+    clearDeck, isInDeck,
+    savedDecks, saveDeck, loadDeck, deleteSavedDeck,
+  } = useDeck()
 
   // Public blog route — render immediately, no auth needed
   const blogUserId = getPublicBlogUserId()
@@ -153,12 +157,12 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating deck button — visible on journal tab when items queued */}
-      {tab === 'journal' && deckItems.length > 0 && !deckOpen && (
+      {/* Floating deck button */}
+      {!deckOpen && (deckItems.length > 0 || savedDecks.length > 0) && (
         <button className="deck-fab" onClick={() => setDeckOpen(true)}>
-          <span className="deck-fab-icon">◻</span>
+          <span className="deck-fab-icon">&#9633;</span>
           演示
-          <span className="deck-fab-badge">{deckItems.length}</span>
+          {deckItems.length > 0 && <span className="deck-fab-badge">{deckItems.length}</span>}
         </button>
       )}
 
@@ -168,7 +172,13 @@ export default function App() {
           onRemove={removeFromDeck}
           onChangeType={changeSlideType}
           onReorder={reorder}
+          addSpecialSlide={addSpecialSlide}
+          updateSpecialSlide={updateSpecialSlide}
           onClose={() => setDeckOpen(false)}
+          savedDecks={savedDecks}
+          onSaveDeck={saveDeck}
+          onLoadDeck={loadDeck}
+          onDeleteSavedDeck={deleteSavedDeck}
         />
       )}
 
