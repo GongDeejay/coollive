@@ -47,7 +47,7 @@ export function useJournal(sessionId, apiBase, token) {
       .finally(() => setSyncing(false))
   }, [token]) // eslint-disable-line
 
-  const addEntry = useCallback(async ({ scene, feeling, reflection, raw }) => {
+  const addEntry = useCallback(async ({ scene, feeling, reflection, raw, images = [] }) => {
     const entry = {
       id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
@@ -56,6 +56,7 @@ export function useJournal(sessionId, apiBase, token) {
       feeling: feeling || '',
       reflection: reflection || '',
       raw: raw || '',
+      images: images || [],   // [{id, dataUrl, type: 'upload'|'camera', width, height}]
       tags: null,
       summary: '',
       quadrant: null,    // { dim, value, energy, secondary_dim, reason }

@@ -107,7 +107,7 @@ export default function App() {
           {/* Logo */}
           <div className="logo">
             <span className="logo-circle" />
-            <span className="logo-text">ZenTalk</span>
+            <span className="logo-text">Hello World</span>
           </div>
 
           {/* Center nav */}
@@ -179,6 +179,8 @@ export default function App() {
           onSaveDeck={saveDeck}
           onLoadDeck={loadDeck}
           onDeleteSavedDeck={deleteSavedDeck}
+          journalEntries={entries}
+          addToDeck={addToDeck}
         />
       )}
 

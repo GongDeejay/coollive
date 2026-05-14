@@ -151,7 +151,7 @@ function buildSlideHtml(item, allItems) {
     case 'divider': return slideDivider(item)
     case 'end':     return slideEnd(item)
     case 'toc':     return slideToc(allItems)
-    case 'cover':   return slideCover(item.text || '', item.subtitle || '')
+    case 'cover':   return slideCover(item.text || item._deckTitle || '', item.subtitle || item._deckSubtitle || '')
     default:        return slideQuote({ entry: { summary: '', created_at: new Date().toISOString() } })
   }
 }
@@ -572,6 +572,12 @@ function toggleFullscreen() {
     document.exitFullscreen?.();
   }
 }
+
+// postMessage from parent (overlay keyboard relay)
+window.addEventListener('message', e => {
+  if (e.data === 'next') nextSlide();
+  if (e.data === 'prev') prevSlide();
+});
 </script>
 </body>
 </html>`

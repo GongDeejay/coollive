@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { downloadDeck, generateDeckHtml } from '../utils/deckGenerator'
 import { getItemId } from '../hooks/useDeck'
 import './DeckOverlay.css'
@@ -21,7 +21,7 @@ function formatDate(iso) {
   return `${d.getMonth()+1}/${d.getDate()}`
 }
 
-// ── Slide thumbnail in left panel ─────────────────────────────────
+// ── Slide thumbnail ────────────────────────────────────────────────
 function SlideThumbnail({ item, index, isSelected, onClick, onMoveUp, onMoveDown, onRemove, isFirst, isLast }) {
   const id = getItemId(item)
 
@@ -29,7 +29,7 @@ function SlideThumbnail({ item, index, isSelected, onClick, onMoveUp, onMoveDown
     const preview = item.entry.summary || item.entry.reflection || item.entry.raw || item.entry.scene || ''
     return (
       <div className={`slide-thumb ${isSelected ? 'slide-thumb--selected' : ''}`} onClick={onClick}>
-        <span className="slide-thumb-num">{index + 1}</span>
+        <span className="slide-thumb-num">{index}</span>
         <div className="slide-thumb-body">
           <span className="slide-thumb-type">{ENTRY_SLIDE_TYPES.find(t => t.value === item.slideType)?.label}</span>
           <p className="slide-thumb-preview">{preview.slice(0, 36)}{preview.length > 36 ? '…' : ''}</p>
@@ -38,7 +38,7 @@ function SlideThumbnail({ item, index, isSelected, onClick, onMoveUp, onMoveDown
         <div className="slide-thumb-actions">
           <button onClick={e => { e.stopPropagation(); onMoveUp() }} disabled={isFirst} title="上移">↑</button>
           <button onClick={e => { e.stopPropagation(); onMoveDown() }} disabled={isLast} title="下移">↓</button>
-          <button onClick={e => { e.stopPropagation(); onRemove(id) }} title="移除" className="slide-thumb-del">✕</button>
+          <button onClick={e => { e.stopPropagation(); onRemove(id) }} className="slide-thumb-del" title="移除">✕</button>
         </div>
       </div>
     )
@@ -55,21 +55,50 @@ function SlideThumbnail({ item, index, isSelected, onClick, onMoveUp, onMoveDown
       <div className="slide-thumb-actions">
         <button onClick={e => { e.stopPropagation(); onMoveUp() }} disabled={isFirst} title="上移">↑</button>
         <button onClick={e => { e.stopPropagation(); onMoveDown() }} disabled={isLast} title="下移">↓</button>
-        <button onClick={e => { e.stopPropagation(); onRemove(id) }} title="移除" className="slide-thumb-del">✕</button>
+        <button onClick={e => { e.stopPropagation(); onRemove(id) }} className="slide-thumb-del" title="移除">✕</button>
       </div>
     </div>
   )
 }
 
 // ── Right panel: slide editor ──────────────────────────────────────
-function SlideEditor({ item, deckItems, onChangeType, onUpdateSpecial }) {
+// selectedIdx === 'cover-auto' → editing the auto cover (deck title/subtitle)
+function SlideEditor({ selectedIdx, item, deckItems, title, subtitle, onChangeTitle, onChangeSubtitle, onChangeType, onUpdateSpecial }) {
+  if (selectedIdx === 'cover-auto') {
+    return (
+      <div className="slide-editor">
+        <div className="slide-editor-section">
+          <label className="slide-editor-label">封面标题</label>
+          <input
+            className="slide-editor-input"
+            value={title}
+            onChange={e => onChangeTitle(e.target.value)}
+            placeholder="演示标题"
+          />
+        </div>
+        <div className="slide-editor-section">
+          <label className="slide-editor-label">封面副标题</label>
+          <input
+            className="slide-editor-input"
+            value={subtitle}
+            onChange={e => onChangeSubtitle(e.target.value)}
+            placeholder="副标题（可选）"
+          />
+        </div>
+        <div className="slide-editor-section">
+          <p className="slide-editor-info">此封面由演示标题自动生成。顶部标题栏同步更新。</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!item) return <div className="slide-editor-empty"><p>选择左侧幻灯片进行编辑</p></div>
 
   if (item.kind === 'entry') {
     const entry = item.entry
     const preview = [
-      entry.scene && `场景：${entry.scene}`,
-      entry.feeling && `感受：${entry.feeling}`,
+      entry.scene    && `场景：${entry.scene}`,
+      entry.feeling  && `感受：${entry.feeling}`,
       entry.reflection && `体会：${entry.reflection}`,
       !entry.scene && entry.raw,
     ].filter(Boolean).join('\n')
@@ -79,13 +108,10 @@ function SlideEditor({ item, deckItems, onChangeType, onUpdateSpecial }) {
           <label className="slide-editor-label">页面类型</label>
           <div className="slide-type-btns">
             {ENTRY_SLIDE_TYPES.map(t => (
-              <button
-                key={t.value}
+              <button key={t.value}
                 className={`slide-type-btn ${item.slideType === t.value ? 'slide-type-btn--active' : ''}`}
                 onClick={() => onChangeType(entry.id, t.value)}
-              >
-                {t.label}
-              </button>
+              >{t.label}</button>
             ))}
           </div>
         </div>
@@ -102,29 +128,29 @@ function SlideEditor({ item, deckItems, onChangeType, onUpdateSpecial }) {
     )
   }
 
-  // Special slide editor
+  // Special slides: cover / divider / end / toc
   return (
     <div className="slide-editor">
       <div className="slide-editor-section">
         <label className="slide-editor-label">类型</label>
         <span className="slide-editor-meta">{SPECIAL_LABELS[item.kind]?.label}</span>
       </div>
-
       {item.kind === 'toc' && (
         <div className="slide-editor-section">
-          <p className="slide-editor-info">目录页将自动列出所有条目页的摘要，共 {deckItems.filter(i => i.kind === 'entry').length} 条</p>
+          <p className="slide-editor-info">目录页自动列出所有条目页摘要，共 {deckItems.filter(i => i.kind === 'entry').length} 条</p>
         </div>
       )}
-
-      {(item.kind === 'divider' || item.kind === 'end') && (
+      {(item.kind === 'cover' || item.kind === 'divider' || item.kind === 'end') && (
         <>
           <div className="slide-editor-section">
-            <label className="slide-editor-label">{item.kind === 'end' ? '结束语' : '标题'}</label>
+            <label className="slide-editor-label">
+              {item.kind === 'cover' ? '标题（留空则使用演示标题）' : item.kind === 'end' ? '结束语' : '章节标题'}
+            </label>
             <input
               className="slide-editor-input"
               value={item.text || ''}
               onChange={e => onUpdateSpecial(item._id, { text: e.target.value })}
-              placeholder={item.kind === 'end' ? '谢谢' : '章节标题'}
+              placeholder={item.kind === 'cover' ? title : item.kind === 'end' ? '谢谢' : '章节标题'}
             />
           </div>
           <div className="slide-editor-section">
@@ -137,6 +163,45 @@ function SlideEditor({ item, deckItems, onChangeType, onUpdateSpecial }) {
             />
           </div>
         </>
+      )}
+    </div>
+  )
+}
+
+// ── Journal entry picker (insert from notes) ───────────────────────
+function JournalPicker({ entries, deckItems, onAdd, onClose }) {
+  const alreadyIn = new Set(deckItems.filter(i => i.kind === 'entry').map(i => i.entry.id))
+  const available = entries.filter(e => !alreadyIn.has(e.id))
+
+  return (
+    <div className="journal-picker">
+      <div className="journal-picker-header">
+        <span className="journal-picker-title">从随手记选择</span>
+        <button className="deck-close-btn" onClick={onClose}>✕</button>
+      </div>
+      {available.length === 0 ? (
+        <div className="journal-picker-empty">
+          <p>所有条目都已加入演示</p>
+        </div>
+      ) : (
+        <ul className="journal-picker-list">
+          {available.map(e => {
+            const preview = e.summary || e.reflection || e.scene || e.raw || ''
+            const d = new Date(e.created_at)
+            return (
+              <li key={e.id} className="journal-picker-item" onClick={() => onAdd(e)}>
+                <div className="journal-picker-date">{d.getMonth()+1}/{d.getDate()}</div>
+                <div className="journal-picker-body">
+                  <p className="journal-picker-preview">{preview.slice(0, 60)}{preview.length > 60 ? '…' : ''}</p>
+                  {e.tags?.emotion?.length > 0 && (
+                    <span className="journal-picker-tag">{e.tags.emotion[0]}</span>
+                  )}
+                </div>
+                <span className="journal-picker-add">+</span>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </div>
   )
@@ -178,11 +243,45 @@ function DeckLibrary({ savedDecks, onLoad, onDelete, onClose }) {
 }
 
 // ── In-app preview player ──────────────────────────────────────────
+// Fix: auto-focus iframe + overlay-level keyboard handler via postMessage
 function DeckPlayer({ html, onClose }) {
+  const frameRef = useRef(null)
+
+  // Focus iframe on mount so keyboard events reach it
+  useEffect(() => {
+    const timer = setTimeout(() => frameRef.current?.focus(), 200)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Overlay-level keyboard handler: relay to iframe via postMessage
+  useEffect(() => {
+    const handler = e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault()
+        frameRef.current?.contentWindow?.postMessage('next', '*')
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        frameRef.current?.contentWindow?.postMessage('prev', '*')
+      }
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
     <div className="deck-player-wrap">
       <button className="deck-player-close" onClick={onClose}>✕ 关闭预览</button>
-      <iframe className="deck-player-frame" srcDoc={html} title="演示预览" sandbox="allow-scripts" />
+      <p className="deck-player-hint">← → 翻页 &nbsp;·&nbsp; ESC 退出</p>
+      <iframe
+        ref={frameRef}
+        className="deck-player-frame"
+        srcDoc={html}
+        title="演示预览"
+        sandbox="allow-scripts"
+        tabIndex={0}
+      />
     </div>
   )
 }
@@ -194,37 +293,39 @@ export default function DeckOverlay({
   addSpecialSlide, updateSpecialSlide,
   onClose,
   savedDecks, onSaveDeck, onLoadDeck, onDeleteSavedDeck,
+  journalEntries = [],
+  addToDeck,
 }) {
-  const [title, setTitle]         = useState('我的演示')
-  const [subtitle, setSubtitle]   = useState('')
+  const [title, setTitle]       = useState('我的演示')
+  const [subtitle, setSubtitle] = useState('')
+  // selectedIdx: number | 'cover-auto' | null
   const [selectedIdx, setSelectedIdx] = useState(null)
-  const [preview, setPreview]     = useState(false)
+  const [preview, setPreview]   = useState(false)
   const [previewHtml, setPreviewHtml] = useState('')
   const [showLibrary, setShowLibrary] = useState(false)
-  const [savedMsg, setSavedMsg]   = useState('')
+  const [showPicker, setShowPicker]   = useState(false)
+  const [savedMsg, setSavedMsg] = useState('')
 
-  // Keyboard ESC
   useEffect(() => {
     const handler = e => {
       if (e.key === 'Escape') {
         if (preview) setPreview(false)
         else if (showLibrary) setShowLibrary(false)
+        else if (showPicker) setShowPicker(false)
         else onClose()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose, preview, showLibrary])
+  }, [onClose, preview, showLibrary, showPicker])
 
-  const selectedItem = selectedIdx !== null ? deckItems[selectedIdx] : null
+  const selectedItem = typeof selectedIdx === 'number' && selectedIdx !== null ? deckItems[selectedIdx] : null
 
   const handlePreview = () => {
     const html = generateDeckHtml({ title, subtitle, items: deckItems })
     setPreviewHtml(html)
     setPreview(true)
   }
-
-  const handleDownload = () => downloadDeck({ title, subtitle, items: deckItems })
 
   const handleSave = () => {
     onSaveDeck(title, subtitle)
@@ -234,12 +335,13 @@ export default function DeckOverlay({
 
   const handleLoadDeck = (deckId) => {
     const meta = onLoadDeck(deckId)
-    if (meta) {
-      setTitle(meta.title)
-      setSubtitle(meta.subtitle)
-    }
-    setShowLibrary(false)
-    setSelectedIdx(null)
+    if (meta) { setTitle(meta.title); setSubtitle(meta.subtitle) }
+    setShowLibrary(false); setSelectedIdx(null)
+  }
+
+  const handleAddFromPicker = (entry) => {
+    addToDeck(entry)
+    // Keep picker open to allow multi-select
   }
 
   const moveUp   = i => { if (i > 0) { onReorder(i, i - 1); setSelectedIdx(i - 1) } }
@@ -253,91 +355,92 @@ export default function DeckOverlay({
     )
   }
 
+  const hasAutoCover = !deckItems.some(i => i.kind === 'cover')
+
   return (
     <div className="deck-overlay">
       <div className="deck-editor">
 
         {/* ── Top bar ── */}
         <div className="deck-editor-topbar">
-          <button className="deck-back-btn" onClick={onClose} title="返回">← 返回</button>
+          <button className="deck-back-btn" onClick={onClose}>← 返回</button>
           <div className="deck-title-area">
             <input className="deck-title-main" value={title} onChange={e => setTitle(e.target.value)} placeholder="演示标题" />
             <input className="deck-subtitle-main" value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="副标题" />
           </div>
           <div className="deck-topbar-actions">
-            <button className="deck-tb-btn" onClick={() => setShowLibrary(v => !v)} title="演示库">
+            <button className="deck-tb-btn" onClick={() => { setShowPicker(v => !v); setShowLibrary(false) }}>
+              + 随手记
+            </button>
+            <button className="deck-tb-btn" onClick={() => { setShowLibrary(v => !v); setShowPicker(false) }}>
               📂 库{savedDecks.length > 0 ? `(${savedDecks.length})` : ''}
             </button>
-            <button className="deck-tb-btn" onClick={handleSave}>
-              {savedMsg || '保存'}
-            </button>
-            <button className="deck-tb-btn deck-tb-btn--preview" onClick={handlePreview} disabled={deckItems.length === 0}>
-              ▶ 预览
-            </button>
-            <button className="deck-tb-btn deck-tb-btn--download" onClick={handleDownload} disabled={deckItems.length === 0}>
-              ⬇ 下载
-            </button>
+            <button className="deck-tb-btn" onClick={handleSave}>{savedMsg || '保存'}</button>
+            <button className="deck-tb-btn deck-tb-btn--preview" onClick={handlePreview} disabled={deckItems.length === 0}>▶ 预览</button>
+            <button className="deck-tb-btn deck-tb-btn--download"
+              onClick={() => { const html = generateDeckHtml({ title, subtitle, items: deckItems }); const b = new Blob([html], {type:'text/html'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${title || 'deck'}.html`; a.click() }}
+              disabled={deckItems.length === 0}>⬇ 下载</button>
           </div>
         </div>
 
         {/* ── Insert special slide bar ── */}
         <div className="deck-insert-bar">
-          <span className="deck-insert-label">插入：</span>
+          <span className="deck-insert-label">插入特殊页：</span>
           {Object.entries(SPECIAL_LABELS).map(([kind, meta]) => (
             <button key={kind} className="deck-insert-btn"
-              onClick={() => addSpecialSlide(kind, selectedIdx ?? deckItems.length - 1)}
-              title={`插入${meta.label}`}>
+              onClick={() => addSpecialSlide(kind, typeof selectedIdx === 'number' ? selectedIdx : deckItems.length - 1)}>
               {meta.icon} {meta.label}
             </button>
           ))}
-          <span className="deck-insert-hint">· 也可从随手记页面「演示」按钮加入条目</span>
         </div>
 
         {/* ── Body ── */}
         <div className="deck-editor-body">
 
-          {/* Library sidebar */}
+          {/* Sidebars (absolute, overlay slide list) */}
           {showLibrary && (
-            <DeckLibrary
-              savedDecks={savedDecks}
-              onLoad={handleLoadDeck}
-              onDelete={onDeleteSavedDeck}
-              onClose={() => setShowLibrary(false)}
-            />
+            <DeckLibrary savedDecks={savedDecks} onLoad={handleLoadDeck}
+              onDelete={onDeleteSavedDeck} onClose={() => setShowLibrary(false)} />
+          )}
+          {showPicker && (
+            <JournalPicker entries={journalEntries} deckItems={deckItems}
+              onAdd={handleAddFromPicker} onClose={() => setShowPicker(false)} />
           )}
 
           {/* Left: slide list */}
           <div className="deck-slide-list">
-            {/* Auto cover preview */}
-            {!deckItems.some(i => i.kind === 'cover') && (
-              <div className="slide-thumb slide-thumb--auto">
+            {/* Auto cover (always shown when no explicit cover) */}
+            {hasAutoCover && (
+              <div
+                className={`slide-thumb slide-thumb--auto ${selectedIdx === 'cover-auto' ? 'slide-thumb--selected' : ''}`}
+                onClick={() => setSelectedIdx(selectedIdx === 'cover-auto' ? null : 'cover-auto')}
+                title="点击编辑封面标题"
+              >
                 <span className="slide-thumb-num slide-thumb-icon">◈</span>
                 <div className="slide-thumb-body">
                   <span className="slide-thumb-type">封面（自动）</span>
-                  <p className="slide-thumb-preview">{title}</p>
+                  <p className="slide-thumb-preview">{title || '演示标题'}</p>
                 </div>
+                <span className="slide-thumb-edit-hint">点击编辑</span>
               </div>
             )}
 
             {deckItems.length === 0 && (
               <div className="deck-list-empty">
-                <p>点击上方按钮插入特殊页</p>
-                <p>或从随手记加入条目</p>
+                <p>点击上方插入特殊页</p>
+                <p>或点「+ 随手记」选条目</p>
               </div>
             )}
 
             {deckItems.map((item, i) => (
               <SlideThumbnail
                 key={getItemId(item)}
-                item={item}
-                index={i + 1}
+                item={item} index={i + (hasAutoCover ? 2 : 1)}
                 isSelected={selectedIdx === i}
                 onClick={() => setSelectedIdx(selectedIdx === i ? null : i)}
-                onMoveUp={() => moveUp(i)}
-                onMoveDown={() => moveDown(i)}
+                onMoveUp={() => moveUp(i)} onMoveDown={() => moveDown(i)}
                 onRemove={onRemove}
-                isFirst={i === 0}
-                isLast={i === deckItems.length - 1}
+                isFirst={i === 0} isLast={i === deckItems.length - 1}
               />
             ))}
           </div>
@@ -345,8 +448,11 @@ export default function DeckOverlay({
           {/* Right: editor */}
           <div className="deck-editor-right">
             <SlideEditor
+              selectedIdx={selectedIdx}
               item={selectedItem}
               deckItems={deckItems}
+              title={title} subtitle={subtitle}
+              onChangeTitle={setTitle} onChangeSubtitle={setSubtitle}
               onChangeType={onChangeType}
               onUpdateSpecial={updateSpecialSlide}
             />
@@ -355,8 +461,11 @@ export default function DeckOverlay({
 
         {/* ── Status bar ── */}
         <div className="deck-status-bar">
-          <span>共 {deckItems.length + (deckItems.some(i => i.kind === 'cover') ? 0 : 1)} 页</span>
-          {selectedItem && <span>· 已选第 {selectedIdx + 2} 页</span>}
+          <span>共 {deckItems.length + (hasAutoCover ? 1 : 0)} 页</span>
+          {typeof selectedIdx === 'number' && selectedItem && (
+            <span>· 已选第 {selectedIdx + (hasAutoCover ? 2 : 1)} 页</span>
+          )}
+          {selectedIdx === 'cover-auto' && <span>· 已选封面页</span>}
         </div>
       </div>
     </div>

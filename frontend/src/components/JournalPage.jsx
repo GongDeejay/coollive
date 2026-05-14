@@ -2,6 +2,26 @@ import { useState, useRef, useCallback } from 'react'
 import JournalCharts from './JournalCharts'
 import './JournalPage.css'
 
+// ── Image compression helper ───────────────────────────────────────
+function compressImage(file, maxWidth = 1200, quality = 0.75) {
+  return new Promise(resolve => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      const img = new Image()
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.floor(img.width  * scale)
+        canvas.height = Math.floor(img.height * scale)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), width: canvas.width, height: canvas.height })
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 const TEMPLATE_FIELDS = [
   { key: 'scene',      placeholder: '当时的场景……' },
   { key: 'feeling',    placeholder: '当时的感受……' },
@@ -142,6 +162,14 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, i
               )}
             </>
           )}
+          {entry.images?.length > 0 && (
+            <div className="entry-images">
+              {entry.images.map(img => (
+                <img key={img.id} src={img.dataUrl} className="entry-image-thumb"
+                  alt="" loading="lazy" />
+              ))}
+            </div>
+          )}
           {entry.quadrant && (
             <div className="entry-quadrant">
               <span className="entry-quadrant-dim"
@@ -192,7 +220,10 @@ function JournalInput({ onSave, saving }) {
   const [useTemplate, setUseTemplate] = useState(true)
   const [fields, setFields] = useState({ scene: '', feeling: '', reflection: '' })
   const [freeText, setFreeText] = useState('')
+  const [images, setImages] = useState([])
   const refs = { scene: useRef(), feeling: useRef(), reflection: useRef(), free: useRef() }
+  const uploadRef  = useRef()
+  const cameraRef  = useRef()
 
   const isEmpty = useTemplate
     ? !fields.scene && !fields.feeling && !fields.reflection
@@ -212,17 +243,33 @@ function JournalInput({ onSave, saving }) {
     el.style.height = Math.min(el.scrollHeight, 300) + 'px'
   }
 
+  const handleImageFile = useCallback(async (e, type) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const compressed = await Promise.all(
+      files.map(async f => {
+        const { dataUrl, width, height } = await compressImage(f)
+        return { id: crypto.randomUUID(), dataUrl, type, width, height }
+      })
+    )
+    setImages(prev => [...prev, ...compressed].slice(0, 6))
+    e.target.value = ''
+  }, [])
+
+  const removeImage = (id) => setImages(prev => prev.filter(img => img.id !== id))
+
   const handleSave = () => {
     if (isEmpty || saving) return
     if (useTemplate) {
-      onSave({ scene: fields.scene, feeling: fields.feeling, reflection: fields.reflection, raw: '' })
+      onSave({ scene: fields.scene, feeling: fields.feeling, reflection: fields.reflection, raw: '', images })
       setFields({ scene: '', feeling: '', reflection: '' })
       Object.values(refs).forEach(r => { if (r.current) r.current.style.height = 'auto' })
     } else {
-      onSave({ scene: '', feeling: '', reflection: '', raw: freeText })
+      onSave({ scene: '', feeling: '', reflection: '', raw: freeText, images })
       setFreeText('')
       if (refs.free.current) refs.free.current.style.height = 'auto'
     }
+    setImages([])
   }
 
   const handleKeyDown = (e) => {
@@ -274,12 +321,40 @@ function JournalInput({ onSave, saving }) {
         />
       )}
 
+      {/* Image toolbar */}
+      <div className="journal-image-toolbar">
+        <input ref={uploadRef} type="file" accept="image/*" multiple
+          style={{ display: 'none' }} onChange={e => handleImageFile(e, 'upload')} />
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment"
+          style={{ display: 'none' }} onChange={e => handleImageFile(e, 'camera')} />
+        <button className="img-btn" onClick={() => uploadRef.current?.click()} title="从相册上传">
+          🖼 上传图片
+        </button>
+        <button className="img-btn" onClick={() => cameraRef.current?.click()} title="拍照">
+          📷 拍照
+        </button>
+        {images.length > 0 && (
+          <span className="img-count">{images.length} 张</span>
+        )}
+      </div>
+
+      {images.length > 0 && (
+        <div className="journal-image-previews">
+          {images.map(img => (
+            <div key={img.id} className="img-preview-wrap">
+              <img src={img.dataUrl} className="img-preview" alt="" />
+              <button className="img-remove" onClick={() => removeImage(img.id)}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="journal-input-footer">
         <span className="journal-hint">⌘+Enter 保存</span>
         <button
-          className={`journal-save-btn ${isEmpty ? '' : 'journal-save-btn--active'}`}
+          className={`journal-save-btn ${(isEmpty && images.length === 0) ? '' : 'journal-save-btn--active'}`}
           onClick={handleSave}
-          disabled={isEmpty || saving}
+          disabled={(isEmpty && images.length === 0) || saving}
         >
           {saving ? '分析中…' : '记录'}
         </button>
