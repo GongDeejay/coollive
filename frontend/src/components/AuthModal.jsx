@@ -27,7 +27,7 @@ export default function AuthModal({ onClose, onRegister, onLogin, loading, error
         </div>
 
         <p className="modal-subtitle">
-          {mode === 'login' ? '登录后，日记同步云端' : '注册账号，日记永不丢失'}
+          {mode === 'login' ? '登录后，随手记同步云端' : '注册账号，随手记永不丢失'}
         </p>
 
         <div className="modal-tabs">
@@ -53,7 +53,7 @@ export default function AuthModal({ onClose, onRegister, onLogin, loading, error
         </form>
 
         <p className="modal-guest">
-          不登录也可以继续使用，日记保存在本地浏览器
+          不登录也可以继续使用，随手记保存在本地浏览器
         </p>
       </div>
     </div>

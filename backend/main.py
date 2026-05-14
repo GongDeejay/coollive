@@ -6,6 +6,7 @@ Routers are split by domain:
   routers/auth_routes.py — register, login, me
   auth.py                — auth helpers, user/journal storage
 """
+import os
 import sys
 from pathlib import Path
 
@@ -13,6 +14,12 @@ from pathlib import Path
 _backend_dir = Path(__file__).parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
+
+# Validate required environment variables at startup
+_REQUIRED_ENV = ["XIAOMI_API_KEY"]
+_missing = [k for k in _REQUIRED_ENV if not os.environ.get(k)]
+if _missing:
+    raise RuntimeError(f"缺少必需环境变量: {', '.join(_missing)}")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

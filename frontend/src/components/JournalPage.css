@@ -423,6 +423,26 @@
   font-style: italic;
 }
 
+.entry-copy-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.entry-copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.entry-copy-btn--done {
+  border-color: #6a9b8a;
+  color: #6a9b8a;
+}
+
 .entry-deck-btn {
   background: transparent;
   border: 1px solid var(--border);

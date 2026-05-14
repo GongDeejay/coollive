@@ -133,7 +133,7 @@ export default function DeckOverlay({ deckItems, onRemove, onChangeType, onReord
         <div className="deck-slides-list">
           {deckItems.length === 0 && (
             <div className="deck-empty">
-              <p>从日记页面选择条目</p>
+              <p>从随手记页面选择条目</p>
               <p className="deck-empty-hint">点击条目右下角的「演示」按钮加入</p>
             </div>
           )}

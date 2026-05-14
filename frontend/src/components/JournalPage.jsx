@@ -82,6 +82,23 @@ function TagLayerBlock({ tags }) {
 
 function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, inDeck }) {
   const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e) => {
+    e.stopPropagation()
+    const parts = []
+    const d = new Date(entry.created_at)
+    parts.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)
+    if (entry.scene)      parts.push(`场景：${entry.scene}`)
+    if (entry.feeling)    parts.push(`感受：${entry.feeling}`)
+    if (entry.reflection) parts.push(`体会：${entry.reflection}`)
+    if (entry.raw && !entry.scene) parts.push(entry.raw)
+    if (entry.summary)    parts.push(`—— ${entry.summary}`)
+    navigator.clipboard.writeText(parts.join('\n')).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }
   const d = new Date(entry.created_at)
   const dateStr = `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 
@@ -139,6 +156,13 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, i
             </div>
           )}
           <div className="entry-actions">
+            <button
+              className={`entry-copy-btn ${copied ? 'entry-copy-btn--done' : ''}`}
+              onClick={handleCopy}
+              title="复制内容"
+            >
+              {copied ? '已复制' : '复制'}
+            </button>
             <button
               className={`entry-deck-btn ${inDeck ? 'entry-deck-btn--on' : ''}`}
               onClick={e => { e.stopPropagation(); if (!inDeck) onAddToDeck(entry) }}
@@ -305,7 +329,7 @@ export default function JournalPage({ onSave, saving, syncing, entries, onDelete
     <div className="journal-page">
       {!isLoggedIn && (
         <div className="journal-login-banner">
-          <span>日记仅保存在本地</span>
+          <span>随手记仅保存在本地</span>
           <button onClick={onLoginPrompt}>登录同步云端 →</button>
         </div>
       )}

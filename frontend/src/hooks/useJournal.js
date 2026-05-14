@@ -160,7 +160,7 @@ export function useJournal(sessionId, apiBase, token) {
         '', '---',
       ].filter(Boolean).join('\n')
     })
-    return `# ZenTalk 日记导出\n\n${lines.join('\n')}`
+    return `# ZenTalk 随手记导出\n\n${lines.join('\n')}`
   }, [entries])
 
   const exportJSON = useCallback(() => JSON.stringify(entries, null, 2), [entries])

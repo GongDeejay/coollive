@@ -112,7 +112,7 @@ export default function App() {
               onClick={() => setTab('chat')}>对话</button>
             <button className={`nav-tab ${tab === 'journal' ? 'nav-tab--active' : ''}`}
               onClick={() => setTab('journal')}>
-              日记
+              随手记
               {entries.length > 0 && <span className="nav-badge">{entries.length}</span>}
             </button>
           </nav>
