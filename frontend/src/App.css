@@ -4,6 +4,7 @@
   height: 100dvh;
   max-width: 760px;
   margin: 0 auto;
+  overflow-x: hidden;
 }
 
 /* ── Header ── */
@@ -187,12 +188,31 @@
   font-weight: 700;
 }
 
-/* ── Mobile: shrink nav text (now 3 tabs) ── */
-@media (max-width: 480px) {
-  .nav-tab { padding: 4px 10px; font-size: 12px; }
+/* ── Mobile: 2-row header when nav + logo + actions are too cramped ── */
+@media (max-width: 560px) {
+  .app-header {
+    height: auto;
+    min-height: 52px;
+    padding-top: 7px;
+    padding-bottom: 6px;
+  }
+  .header-inner {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .logo { order: 1; flex: 1; }
+  .header-actions { order: 2; flex-shrink: 0; }
+  .app-nav {
+    order: 3;
+    position: static;
+    transform: none;
+    left: auto;
+    width: 100%;
+    justify-content: center;
+  }
+  .nav-tab { padding: 4px 18px; font-size: 13px; }
 }
 @media (max-width: 400px) {
-  .nav-tab { padding: 4px 8px; font-size: 11px; }
   .logo-text { font-size: 14px; }
   .btn-clear, .btn-auth { padding: 4px 8px; font-size: 11px; }
 }

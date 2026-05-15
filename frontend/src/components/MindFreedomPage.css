@@ -151,6 +151,20 @@
   line-height: 1.5;
 }
 
+/* Simplified intro notice */
+.mf-intro-notice--simple {
+  padding: 16px 18px;
+  margin-bottom: 28px;
+}
+
+.mf-intro-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin: 0 0 8px;
+}
+.mf-intro-desc:last-child { margin-bottom: 0; }
+
 .mf-intro-actions {
   display: flex;
   flex-direction: column;
@@ -738,6 +752,99 @@
   font-family: inherit;
 }
 .mf-del-btn:hover { opacity: 0.8; color: #c47a7a; }
+
+/* ── Multi-blank input ── */
+.mf-multi-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mf-multi-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mf-multi-seg {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.7;
+  letter-spacing: 0.03em;
+  margin: 0;
+  padding-top: 8px;
+}
+
+.mf-textarea--compact {
+  min-height: 72px;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  padding-left: 14px;
+}
+
+/* ── Framework background details (in result page) ── */
+.mf-framework-details {
+  width: 100%;
+  max-width: 600px;
+  margin: 16px 0;
+}
+
+.mf-framework-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  padding: 4px 0;
+  list-style: none;
+}
+.mf-framework-summary::-webkit-details-marker { display: none; }
+.mf-framework-summary::before { content: '+ '; }
+details[open] .mf-framework-summary::before { content: '− '; }
+
+.mf-framework-body {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mf-framework-body > p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.mf-framework-dim {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.mf-framework-dim-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 0.8;
+  width: 64px;
+  flex-shrink: 0;
+  padding-top: 1px;
+  letter-spacing: 0.04em;
+}
+
+.mf-framework-dim-def {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
 
 /* ── Mobile ── */
 @media (max-width: 480px) {

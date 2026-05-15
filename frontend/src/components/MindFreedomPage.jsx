@@ -132,32 +132,16 @@ function IntroView({ onStart, onHistory, hasHistory, error }) {
     <div className="mf-intro">
       <div className="mf-intro-header">
         <h1 className="mf-intro-title">心智自由度</h1>
-        <p className="mf-intro-subtitle">
-          三个维度 · 十二道问题<br />
-          看见你如何认识世界、安顿自己、回到生活
+        <p className="mf-intro-subtitle">十二道问题 · 5–10 分钟</p>
+      </div>
+
+      <div className="mf-intro-notice mf-intro-notice--simple">
+        <p className="mf-intro-desc">
+          这是开发者基于个人对思维世界的理解，提出的一套分析框架。
         </p>
-      </div>
-
-      <div className="mf-dim-cards">
-        <div className="mf-dim-card">
-          <div className="mf-dim-card-name">认知自由度</div>
-          <div className="mf-dim-card-desc">不被单一解释和单一因果链困住的能力</div>
-        </div>
-        <div className="mf-dim-card">
-          <div className="mf-dim-card-name">取舍自由度</div>
-          <div className="mf-dim-card-desc">在责任、欲望、关系之间把握有所为有所不为的能力</div>
-        </div>
-        <div className="mf-dim-card">
-          <div className="mf-dim-card-name">在场自由度</div>
-          <div className="mf-dim-card-desc">从抽象思考回到身体、行动和生活现场的能力</div>
-        </div>
-      </div>
-
-      <div className="mf-intro-notice">
-        <p>这不是人格诊断，也不是开悟排名</p>
-        <p>没有标准答案，请按直觉回答</p>
-        <p>回答越真实，分析越有价值</p>
-        <p>预计 5–10 分钟完成</p>
+        <p className="mf-intro-desc">
+          当作趣味测试来玩就好。没有标准答案，请按直觉回答，越真实越有意思。
+        </p>
       </div>
 
       {error && <p className="mf-error">{error}</p>}
@@ -189,19 +173,84 @@ function LoadingQView() {
   )
 }
 
-// ── Test view ───────────────────────────────────────────────────────
-function TestView({ questions, answers, currentQIdx, onAnswer, onGo, onReview }) {
-  const q        = questions[currentQIdx]
-  const isLast   = currentQIdx === questions.length - 1
-  const canNext  = !!(answers[q?.id] || '').trim()
+// ── Multi-blank separator ──────────────────────────────────────────
+const BLANK_SEP = '\n——\n'
 
-  const handleTextareaResize = e => {
+// Split question text by '……' to count / locate blanks
+function getBlankSegments(text) {
+  return (text || '').split('……')
+}
+
+// Smart answer input: single textarea OR per-blank textareas
+function SmartInput({ question, answer, onAnswer }) {
+  const segments  = getBlankSegments(question.text)
+  const blankCount = segments.length - 1
+
+  const autoResize = e => {
     const el = e.target
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 280) + 'px'
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px'
   }
 
+  if (blankCount < 2) {
+    return (
+      <>
+        <textarea
+          className="mf-textarea"
+          placeholder="不需要写得正确，请写你第一反应中最真实的部分……"
+          value={answer || ''}
+          onChange={e => { onAnswer(e.target.value); autoResize(e) }}
+          rows={4}
+          autoFocus
+        />
+        <p className="mf-test-hint">建议 1–3 句话 · 支持语音输入</p>
+      </>
+    )
+  }
+
+  // Multiple blanks: one textarea per blank, with question segments as labels
+  const parts = (answer || '').split(BLANK_SEP)
+  return (
+    <div className="mf-multi-input">
+      {segments.map((seg, i) => (
+        <div key={i} className="mf-multi-block">
+          {seg && <p className="mf-multi-seg">{seg}</p>}
+          {i < blankCount && (
+            <textarea
+              className="mf-textarea mf-textarea--compact"
+              placeholder={`第 ${i + 1} 处填写……`}
+              value={parts[i] || ''}
+              onChange={e => {
+                const np = Array.from({ length: blankCount }, (_, k) => parts[k] || '')
+                np[i] = e.target.value
+                onAnswer(np.join(BLANK_SEP))
+                autoResize(e)
+              }}
+              rows={2}
+              autoFocus={i === 0}
+            />
+          )}
+        </div>
+      ))}
+      <p className="mf-test-hint">按填空顺序分别填写 · 支持语音输入</p>
+    </div>
+  )
+}
+
+// ── Test view ───────────────────────────────────────────────────────
+function TestView({ questions, answers, currentQIdx, onAnswer, onGo, onReview }) {
+  const q = questions[currentQIdx]
   if (!q) return null
+
+  const isLast    = currentQIdx === questions.length - 1
+  const segments  = getBlankSegments(q.text)
+  const blankCount = segments.length - 1
+  const rawAnswer  = answers[q.id] || ''
+
+  // canNext: all blanks must be non-empty
+  const canNext = blankCount >= 2
+    ? rawAnswer.split(BLANK_SEP).filter(p => p.trim()).length >= blankCount
+    : rawAnswer.trim().length > 0
 
   return (
     <div className="mf-test">
@@ -214,20 +263,14 @@ function TestView({ questions, answers, currentQIdx, onAnswer, onGo, onReview })
       </div>
 
       <p className="mf-dim-hint">{q.dim}</p>
-      <p className="mf-question-text">{q.text}</p>
+      {/* For multi-blank questions, question text is embedded in SmartInput */}
+      {blankCount < 2 && <p className="mf-question-text">{q.text}</p>}
 
-      <textarea
-        className="mf-textarea"
-        placeholder="不需要写得正确，请写你第一反应中最真实的部分……"
-        value={answers[q.id] || ''}
-        onChange={e => {
-          onAnswer(q.id, e.target.value)
-          handleTextareaResize(e)
-        }}
-        rows={4}
-        autoFocus
+      <SmartInput
+        question={q}
+        answer={rawAnswer}
+        onAnswer={text => onAnswer(q.id, text)}
       />
-      <p className="mf-test-hint">建议 1–3 句话 · 支持语音输入</p>
 
       <div className="mf-test-nav">
         <button className="mf-btn" onClick={() => onGo(currentQIdx - 1)}
@@ -404,6 +447,26 @@ function ResultView({ result, onSave, onExport, onReset, onHistory, onLoginPromp
       <hr className="mf-divider" />
 
       <p className="mf-disclaimer">{result.disclaimer}</p>
+
+      {/* Framework background — moved here from intro page */}
+      <details className="mf-framework-details">
+        <summary className="mf-framework-summary">关于这三个维度（背景说明）</summary>
+        <div className="mf-framework-body">
+          <p>这套分析框架是开发者基于个人对思维世界的理解提出的，当作趣味参考即可。</p>
+          <div className="mf-framework-dim">
+            <span className="mf-framework-dim-name">认知自由度</span>
+            <span className="mf-framework-dim-def">不被单一解释和单一因果链困住的能力</span>
+          </div>
+          <div className="mf-framework-dim">
+            <span className="mf-framework-dim-name">取舍自由度</span>
+            <span className="mf-framework-dim-def">在责任、欲望、关系之间把握有所为有所不为的能力</span>
+          </div>
+          <div className="mf-framework-dim">
+            <span className="mf-framework-dim-name">在场自由度</span>
+            <span className="mf-framework-dim-def">从抽象思考回到身体、行动和生活现场的能力</span>
+          </div>
+        </div>
+      </details>
 
       <div className="mf-section">
         <div className="mf-result-actions">

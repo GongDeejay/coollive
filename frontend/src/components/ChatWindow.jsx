@@ -94,7 +94,7 @@ function WelcomeScreen() {
   return (
     <div className="welcome">
       <div className="welcome-enso" />
-      <h1 className="welcome-title">和自己说说话</h1>
+      <h1 className="welcome-title">和自己聊聊</h1>
       <p className="welcome-hint">be still · just this · let go</p>
     </div>
   )
