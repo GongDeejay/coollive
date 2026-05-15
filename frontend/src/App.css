@@ -187,9 +187,12 @@
   font-weight: 700;
 }
 
-/* ── Mobile: shrink nav text ── */
-@media (max-width: 400px) {
+/* ── Mobile: shrink nav text (now 3 tabs) ── */
+@media (max-width: 480px) {
   .nav-tab { padding: 4px 10px; font-size: 12px; }
+}
+@media (max-width: 400px) {
+  .nav-tab { padding: 4px 8px; font-size: 11px; }
   .logo-text { font-size: 14px; }
   .btn-clear, .btn-auth { padding: 4px 8px; font-size: 11px; }
 }

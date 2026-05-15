@@ -4,6 +4,7 @@ import JournalPage from './components/JournalPage'
 import AuthModal from './components/AuthModal'
 import PublicBlog from './components/PublicBlog'
 import DeckOverlay from './components/DeckOverlay'
+import MindFreedomPage from './components/MindFreedomPage'
 import { useJournal } from './hooks/useJournal'
 import { useAuth } from './hooks/useAuth'
 import { useDeck } from './hooks/useDeck'
@@ -113,12 +114,14 @@ export default function App() {
           {/* Center nav */}
           <nav className="app-nav">
             <button className={`nav-tab ${tab === 'chat' ? 'nav-tab--active' : ''}`}
-              onClick={() => setTab('chat')}>对话</button>
+              onClick={() => setTab('chat')}>聊聊</button>
             <button className={`nav-tab ${tab === 'journal' ? 'nav-tab--active' : ''}`}
               onClick={() => setTab('journal')}>
-              随手记
+              随记
               {entries.length > 0 && <span className="nav-badge">{entries.length}</span>}
             </button>
+            <button className={`nav-tab ${tab === 'freedom' ? 'nav-tab--active' : ''}`}
+              onClick={() => setTab('freedom')}>测测</button>
           </nav>
 
           {/* Right actions */}
@@ -143,6 +146,14 @@ export default function App() {
           <ChatWindow
             messages={messages} loading={loading}
             onSend={sendMessage} onLike={likeMessage} onDislike={dislikeMessage}
+          />
+        )}
+        {tab === 'freedom' && (
+          <MindFreedomPage
+            apiBase={apiBase}
+            user={user}
+            token={token}
+            onLoginPrompt={() => setShowAuth(true)}
           />
         )}
         {tab === 'journal' && (
