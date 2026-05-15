@@ -19,6 +19,7 @@ import time
 import random
 import math
 import re as _re
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +28,17 @@ from pydantic import BaseModel
 from openai import OpenAI
 
 import auth as _auth
+
+# ── Structured logger for this module ──────────────────────────────
+logger = logging.getLogger("mind_freedom")
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter(
+        "%(asctime)s [MF] %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    logger.addHandler(_handler)
+    logger.setLevel(logging.INFO)
 
 router = APIRouter()
 
@@ -128,14 +140,19 @@ def _load_sets() -> list:
         try:
             data = json.loads(SETS_FILE.read_text(encoding="utf-8"))
             if len(data.get("sets", [])) == 5:
+                logger.info("Question sets loaded from cache: %s", SETS_FILE)
                 return data["sets"]
-        except Exception:
-            pass
+            else:
+                logger.warning("Cached sets file malformed (got %d sets), regenerating", len(data.get("sets", [])))
+        except Exception as e:
+            logger.warning("Failed to load cached sets: %s", e)
+    logger.info("No valid cache found, generating question sets via LLM...")
     return _generate_and_save_sets()
 
 
 def _generate_and_save_sets() -> list:
     """Call LLM once to generate 5 × 12 questions, persist to disk."""
+    logger.info("Calling LLM to generate 5 question sets (model=%s)...", MODEL)
     try:
         resp = client.chat.completions.create(
             model=MODEL,
@@ -147,19 +164,26 @@ def _generate_and_save_sets() -> list:
             temperature=0.7,
         )
         raw = resp.choices[0].message.content.strip()
+        logger.info("LLM response received, length=%d chars", len(raw))
         m = _re.search(r'\{.*\}', raw, _re.DOTALL)
-        data = json.loads(m.group()) if m else {}
+        if not m:
+            logger.error("No JSON found in LLM response: %s", raw[:200])
+            return _static_fallback_sets()
+        data = json.loads(m.group())
         sets = data.get("sets", [])
+        logger.info("Parsed %d sets, sizes: %s", len(sets), [len(s) for s in sets])
         if len(sets) == 5 and all(len(s) == 12 for s in sets):
             SETS_FILE.write_text(
                 json.dumps({"generated_at": time.time(), "sets": sets},
                            ensure_ascii=False, indent=2),
                 encoding="utf-8"
             )
+            logger.info("Question sets saved to %s", SETS_FILE)
             return sets
-    except Exception:
-        pass
-    # Fallback: return static questions if LLM fails
+        else:
+            logger.warning("Invalid sets structure, using fallback")
+    except Exception as e:
+        logger.error("LLM question generation failed: %s", e, exc_info=True)
     return _static_fallback_sets()
 
 
@@ -180,9 +204,9 @@ _STATIC_QUESTIONS = {
     "Q5":  "权力对我来说，既是……，也是……",
     "Q6":  "我现在越来越能看见，自己过去很多努力其实是在……",
     "Q7":  "当我必须推动别人改变，而别人又很慢的时候，我会……",
-    "Q8":  "我对"成功"的理解，正在从……变成……",
+    "Q8":  '我对"成功"的理解，正在从……变成……',
     "Q9":  "我最难放下的不是某个具体东西，而是……",
-    "Q10": "当我说"开悟"或者"境界提升"时，我真正想追问的是……",
+    "Q10": '当我说"开悟"或者"境界提升"时，我真正想追问的是……',
     "Q11": "如果我不再需要证明自己，我可能会……",
     "Q12": "我希望未来的自己，既能……，又能……",
 }
@@ -243,19 +267,26 @@ class SaveResultRequest(BaseModel):
 @router.get("/mind-freedom/questions")
 async def get_questions(test_idx: int = 0):
     """Return 12 questions. test_idx 0-4 → fixed set; 5+ → random mix."""
-    sets = _load_sets()
+    logger.info("GET /mind-freedom/questions test_idx=%d", test_idx)
+    try:
+        sets = _load_sets()
+    except Exception as e:
+        logger.error("_load_sets() raised: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="题目加载失败，请稍后重试")
     if test_idx < 5:
         questions = sets[test_idx]
         set_index = test_idx
     else:
         questions = [random.choice([s[i] for s in sets]) for i in range(12)]
         set_index = -1
+    logger.info("Returning %d questions for set_index=%d", len(questions), set_index)
     return {"questions": questions, "set_index": set_index}
 
 
 @router.post("/mind-freedom/analyze")
 async def analyze_answers(req: AnalyzeRequest):
     """Submit 12 answers, get LLM analysis with scores and insights."""
+    logger.info("POST /mind-freedom/analyze answers=%d", len(req.answers))
     if len(req.answers) < 3:
         raise HTTPException(status_code=400, detail="至少需要3条回答才能分析")
 
@@ -271,6 +302,7 @@ async def analyze_answers(req: AnalyzeRequest):
     user_prompt = f"以下是用户对12道心智自由度问卷题的回答：\n\n{answers_text}\n\n请按要求格式输出分析结果。"
 
     try:
+        logger.info("Calling LLM for analysis (model=%s, chars=%d)", MODEL, len(user_prompt))
         resp = client.chat.completions.create(
             model=MODEL,
             messages=[
@@ -281,9 +313,15 @@ async def analyze_answers(req: AnalyzeRequest):
             temperature=0.5,
         )
         raw = resp.choices[0].message.content.strip()
+        logger.info("Analysis LLM response length=%d", len(raw))
         m = _re.search(r'\{.*\}', raw, _re.DOTALL)
-        data = json.loads(m.group()) if m else {}
+        if not m:
+            logger.error("No JSON in analysis response: %s", raw[:300])
+            raise ValueError("LLM did not return valid JSON")
+        data = json.loads(m.group())
+        logger.info("Analysis parsed OK, scores=%s", data.get("scores"))
     except Exception as e:
+        logger.error("Analysis failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"AI 分析失败: {str(e)}")
 
     # Validate and clamp scores
