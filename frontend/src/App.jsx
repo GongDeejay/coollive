@@ -5,6 +5,9 @@ import AuthModal from './components/AuthModal'
 import PublicBlog from './components/PublicBlog'
 import DeckOverlay from './components/DeckOverlay'
 import MindFreedomPage from './components/MindFreedomPage'
+import AdminDashboard from './components/AdminDashboard'
+
+const ADMIN_EMAIL = 'gongdj@gmail.com'
 import { useJournal } from './hooks/useJournal'
 import { useAuth } from './hooks/useAuth'
 import { useDeck } from './hooks/useDeck'
@@ -122,6 +125,10 @@ export default function App() {
             </button>
             <button className={`nav-tab ${tab === 'freedom' ? 'nav-tab--active' : ''}`}
               onClick={() => setTab('freedom')}>测测</button>
+            {user?.email === ADMIN_EMAIL && (
+              <button className={`nav-tab ${tab === 'admin' ? 'nav-tab--active' : ''}`}
+                onClick={() => setTab('admin')}>后台</button>
+            )}
           </nav>
 
           {/* Right actions */}
@@ -155,6 +162,9 @@ export default function App() {
             token={token}
             onLoginPrompt={() => setShowAuth(true)}
           />
+        )}
+        {tab === 'admin' && user?.email === ADMIN_EMAIL && (
+          <AdminDashboard apiBase={apiBase} token={token} />
         )}
         {tab === 'journal' && (
           <JournalPage

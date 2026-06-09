@@ -28,6 +28,7 @@ from routers.chat import router as chat_router
 from routers.journal import router as journal_router
 from routers.auth_routes import router as auth_router
 from routers.mind_freedom import router as mf_router
+from routers.admin_stats import router as admin_router
 
 app = FastAPI(title="ZenTalk API", version="2.0")
 
@@ -43,6 +44,7 @@ app.include_router(chat_router)
 app.include_router(journal_router)
 app.include_router(auth_router)
 app.include_router(mf_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")
