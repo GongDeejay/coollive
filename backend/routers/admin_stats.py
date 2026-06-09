@@ -23,7 +23,8 @@ import auth as _auth
 router = APIRouter()
 
 ADMIN_EMAIL = "gongdj@gmail.com"
-CACHE_FILE  = Path(os.environ.get("DATA_DIR", "/opt/zentalk/data")) / "admin_stats_cache.json"
+DATA_DIR    = Path(os.environ.get("DATA_DIR", "/opt/zentalk/data"))
+CACHE_FILE  = DATA_DIR / "admin_stats_cache.json"
 CACHE_TTL   = 300   # seconds (5 minutes)
 
 LOG_FILES = {
