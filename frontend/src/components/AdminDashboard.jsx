@@ -135,13 +135,78 @@ function ErrorRow({ e }) {
   )
 }
 
+// ── User ops section ──────────────────────────────────────────────
+function UserStats({ u }) {
+  if (!u) return <div className="ad-card ad-card--loading">加载中…</div>
+  const newThisWeek = u.reg_trend?.reduce((s, d) => s + d.count, 0) ?? 0
+  return (
+    <div className="ad-user-section">
+      {/* Key numbers */}
+      <div className="ad-user-kpi-grid">
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.total_users}</span>
+          <span className="ad-kpi-label">注册用户</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.active_users_30d}</span>
+          <span className="ad-kpi-label">30天活跃</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.journal_user_count}</span>
+          <span className="ad-kpi-label">有随手记</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.total_journal_entries}</span>
+          <span className="ad-kpi-label">随手记条数</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.assessment_user_count}</span>
+          <span className="ad-kpi-label">做过测评</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num ad-kpi-num--accent">+{newThisWeek}</span>
+          <span className="ad-kpi-label">7天新注册</span>
+        </div>
+      </div>
+
+      {/* Registration 7-day trend */}
+      <div className="ad-card" style={{ marginTop: 10 }}>
+        <div className="ad-card-site">新注册趋势（7天）</div>
+        <Sparkline data={(u.reg_trend ?? []).map(d => ({ requests: d.count }))}
+          color="#9aaf7a" height={46} />
+        <div className="ad-card-footer">
+          {(u.reg_trend ?? []).map(d => (
+            <span key={d.date}>{d.date.slice(5)} <b>{d.count}</b></span>
+          ))}
+        </div>
+      </div>
+
+      {/* Top journal users */}
+      {u.top_journal_users?.length > 0 && (
+        <div className="ad-card" style={{ marginTop: 10 }}>
+          <div className="ad-card-site" style={{ marginBottom: 8 }}>随手记最多的用户</div>
+          {u.top_journal_users.map((ju, i) => (
+            <div key={i} className="ad-proc-row" style={{ gap: 8 }}>
+              <span className="ad-proc-name" style={{ fontSize: 12 }}>{ju.email}</span>
+              <span style={{ fontSize: 11, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
+                {ju.count} 条
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main dashboard ─────────────────────────────────────────────────
 export default function AdminDashboard({ token, apiBase }) {
-  const [stats, setStats]       = useState(null)
-  const [loading, setLoading]   = useState(false)
+  const [stats, setStats]         = useState(null)
+  const [userStats, setUserStats] = useState(null)
+  const [loading, setLoading]     = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [error, setError]       = useState('')
-  const [genTime, setGenTime]   = useState(null)
+  const [error, setError]         = useState('')
+  const [genTime, setGenTime]     = useState(null)
 
   const fetchStats = useCallback(async (force = false) => {
     if (!token) return
@@ -154,12 +219,15 @@ export default function AdminDashboard({ token, apiBase }) {
           headers: { Authorization: `Bearer ${token}` },
         })
       }
-      const res = await fetch(`${apiBase}/admin/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const [res, resU] = await Promise.all([
+        fetch(`${apiBase}/admin/stats`,       { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiBase}/admin/stats/users`, { headers: { Authorization: `Bearer ${token}` } }),
+      ])
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
+      const data  = await res.json()
+      const udata = resU.ok ? await resU.json() : null
       setStats(data)
+      setUserStats(udata)
       setGenTime(data.generated_at ? new Date(data.generated_at * 1000) : null)
     } catch (e) {
       setError('数据加载失败：' + e.message)
@@ -184,16 +252,12 @@ export default function AdminDashboard({ token, apiBase }) {
         <div>
           <h2 className="ad-title">服务后台</h2>
           {genTime && (
-            <p className="ad-subtitle">
-              数据截至 {genTime.toLocaleString('zh-CN')}
-            </p>
+            <p className="ad-subtitle">数据截至 {genTime.toLocaleString('zh-CN')}</p>
           )}
         </div>
         <button
           className={`ad-refresh-btn ${refreshing ? 'ad-refresh-btn--spinning' : ''}`}
-          onClick={() => fetchStats(true)}
-          disabled={refreshing}
-          title="强制刷新日志数据"
+          onClick={() => fetchStats(true)} disabled={refreshing}
         >
           ↻ {refreshing ? '刷新中…' : '刷新'}
         </button>
@@ -201,26 +265,26 @@ export default function AdminDashboard({ token, apiBase }) {
 
       {error && <p className="ad-error">{error}</p>}
 
-      {/* Traffic section */}
+      {/* ── User ops ── */}
+      <div className="ad-section-title">用户运营</div>
+      <UserStats u={userStats} />
+
+      {/* ── Traffic ── */}
       <div className="ad-section-title">访问流量（7天）</div>
       <div className="ad-traffic-grid">
-        <TrafficCard site="zen" label="zen.mplusm.site"
-          data={stats?.traffic?.zen} />
-        <TrafficCard site="3d"  label="3d.mplusm.site"
-          data={stats?.traffic?.['3d']} />
+        <TrafficCard site="zen" label="zen.mplusm.site" data={stats?.traffic?.zen} />
+        <TrafficCard site="3d"  label="3d.mplusm.site"  data={stats?.traffic?.['3d']} />
       </div>
 
-      {/* Process status */}
+      {/* ── Processes ── */}
       <div className="ad-section-title">进程状态</div>
       <div className="ad-card ad-card--proc">
-        {stats?.processes?.length ? (
-          stats.processes.map(p => <ProcessRow key={p.name} p={p} />)
-        ) : (
-          <p className="ad-empty">加载中…</p>
-        )}
+        {stats?.processes?.length
+          ? stats.processes.map(p => <ProcessRow key={p.name} p={p} />)
+          : <p className="ad-empty">加载中…</p>}
       </div>
 
-      {/* Error log */}
+      {/* ── Errors ── */}
       <div className="ad-section-title">
         接口错误日志
         <span className="ad-err-count">
@@ -228,14 +292,10 @@ export default function AdminDashboard({ token, apiBase }) {
         </span>
       </div>
       <div className="ad-card ad-card--errors">
-        {stats?.errors?.length ? (
-          stats.errors
-            .filter(e => e.level === 'error')
-            .slice(0, 30)
-            .map((e, i) => <ErrorRow key={i} e={e} />)
-        ) : (
-          <p className="ad-empty">暂无错误日志</p>
-        )}
+        {stats?.errors?.length
+          ? stats.errors.filter(e => e.level === 'error').slice(0, 30)
+              .map((e, i) => <ErrorRow key={i} e={e} />)
+          : <p className="ad-empty">暂无错误日志</p>}
       </div>
     </div>
   )

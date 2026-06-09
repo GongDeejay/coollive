@@ -6,6 +6,7 @@ import PublicBlog from './components/PublicBlog'
 import DeckOverlay from './components/DeckOverlay'
 import MindFreedomPage from './components/MindFreedomPage'
 import AdminDashboard from './components/AdminDashboard'
+import ChangePasswordModal from './components/ChangePasswordModal'
 
 const ADMIN_EMAIL = 'gongdj@gmail.com'
 import { useJournal } from './hooks/useJournal'
@@ -24,7 +25,9 @@ export default function App() {
   const [sessionId, setSessionId] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading]   = useState(false)
-  const [showAuth, setShowAuth] = useState(false)
+  const [showAuth, setShowAuth]     = useState(false)
+  const [showChangePwd, setShowChangePwd] = useState(false)
+  const [showUserMenu, setShowUserMenu]   = useState(false)
 
   const apiBase = import.meta.env.VITE_API_URL || '/api'
 
@@ -99,7 +102,7 @@ export default function App() {
   }, [sessionId, apiBase])
 
   // ── Auth ──────────────────────────────────────────────────────────
-  const handleLogout = () => { logout(); setShowAuth(false) }
+  const handleLogout = () => { logout(); setShowAuth(false); setShowUserMenu(false) }
 
   // Derive display name for header
   const userLabel = user ? user.email.split('@')[0] : null
@@ -137,10 +140,19 @@ export default function App() {
               <button className="btn-clear" onClick={clearSession}>新对话</button>
             )}
             {user ? (
-              <button className="btn-auth btn-auth--user" onClick={handleLogout}
-                title={`${user.email} · 点击退出`}>
-                {userLabel}
-              </button>
+              <div className="user-menu-wrap">
+                <button className="btn-auth btn-auth--user"
+                  onClick={() => setShowUserMenu(v => !v)}
+                  title={user.email}>
+                  {userLabel} ▾
+                </button>
+                {showUserMenu && (
+                  <div className="user-menu-dropdown" onClick={() => setShowUserMenu(false)}>
+                    <button onClick={() => { setShowChangePwd(true) }}>修改密码</button>
+                    <button onClick={handleLogout}>退出登录</button>
+                  </div>
+                )}
+              </div>
             ) : (
               <button className="btn-auth" onClick={() => setShowAuth(true)}>登录</button>
             )}
@@ -210,6 +222,14 @@ export default function App() {
           onClose={() => { setShowAuth(false); clearError() }}
           onRegister={register} onLogin={login}
           loading={authLoading} error={authError} clearError={clearError}
+        />
+      )}
+
+      {showChangePwd && user && (
+        <ChangePasswordModal
+          apiBase={apiBase} token={token}
+          userEmail={user.email}
+          onClose={() => setShowChangePwd(false)}
         />
       )}
     </div>

@@ -183,6 +183,42 @@
 .ad-err-svc  { flex-shrink: 0; font-family: monospace; opacity: 0.8; }
 .ad-err-msg  { color: var(--text-secondary); word-break: break-all; line-height: 1.5; }
 
+/* ── User stats ── */
+.ad-user-section { display: flex; flex-direction: column; gap: 0; }
+
+.ad-user-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+@media (max-width: 480px) { .ad-user-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.ad-kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ad-kpi-num {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ad-kpi-num--accent { color: var(--accent); }
+
+.ad-kpi-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  letter-spacing: 0.04em;
+}
+
 /* ── Misc ── */
 .ad-empty  { font-size: 12px; color: var(--text-secondary); opacity: 0.4; text-align: center; padding: 16px 0; }
 .ad-error  { font-size: 12px; color: #c47a7a; padding: 8px 12px; background: var(--surface); border-radius: 8px; border: 1px solid #9a5a5a; }

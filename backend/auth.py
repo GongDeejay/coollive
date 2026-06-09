@@ -123,6 +123,37 @@ def login(email: str, password: str) -> dict:
     raise HTTPException(status_code=404, detail="user_not_found")
 
 
+def change_password(user_id: str, old_password: str, new_password: str) -> dict:
+    """Change password — requires old password verification."""
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="password_too_short")
+    users = _load_users()
+    u = users.get(user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    if not bcrypt.checkpw(old_password.encode(), u["password"].encode()):
+        raise HTTPException(status_code=401, detail="wrong_password")
+    users[user_id]["password"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    _save_users(users)
+    return {"ok": True}
+
+
+def admin_force_reset(admin_email: str, target_email: str, new_password: str) -> dict:
+    """Admin-only: force reset any user's password without old password."""
+    if admin_email != "gongdj@gmail.com":
+        raise HTTPException(status_code=403, detail="admin_only")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="password_too_short")
+    users = _load_users()
+    target_email = target_email.strip().lower()
+    for uid, u in users.items():
+        if u["email"] == target_email:
+            users[uid]["password"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+            _save_users(users)
+            return {"ok": True, "email": target_email}
+    raise HTTPException(status_code=404, detail="user_not_found")
+
+
 # ── Journal cloud storage ──────────────────────────────────────────
 
 def load_user_journal(user_id: str) -> list:

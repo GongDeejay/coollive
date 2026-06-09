@@ -208,11 +208,119 @@ def load_stats(force: bool = False) -> dict:
     return build_stats()
 
 
+# ── User operations metrics ─────────────────────────────────────────
+USERS_FILE    = DATA_DIR / "users.json"
+JOURNALS_DIR  = DATA_DIR / "journals"
+ASSESSMENTS_DIR = DATA_DIR / "assessments"
+
+
+def get_user_stats() -> dict:
+    """Read user registrations, journal entries, assessment data."""
+    # Load all users
+    users: dict = {}
+    if USERS_FILE.exists():
+        try:
+            users = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            users = {}
+
+    total_users = len(users)
+
+    # Registration trend — last 7 days
+    cutoff_ts = time.time() - 7 * 86400
+    reg_by_day: dict[str, int] = defaultdict(int)
+    for uid, u in users.items():
+        ts = u.get("created_at", 0)
+        if ts >= cutoff_ts:
+            day = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+            reg_by_day[day] += 1
+
+    reg_trend = []
+    today = datetime.now().date()
+    for i in range(6, -1, -1):
+        day = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+        reg_trend.append({"date": day, "count": reg_by_day.get(day, 0)})
+
+    # Journal stats
+    journal_user_count = 0
+    total_journal_entries = 0
+    entries_by_user: list[dict] = []
+    if JOURNALS_DIR.exists():
+        for f in JOURNALS_DIR.glob("*.json"):
+            uid = f.stem
+            try:
+                entries = json.loads(f.read_text(encoding="utf-8"))
+                cnt = len(entries) if isinstance(entries, list) else 0
+                if cnt > 0:
+                    journal_user_count += 1
+                    total_journal_entries += cnt
+                    email = users.get(uid, {}).get("email", uid[:8] + "…")
+                    entries_by_user.append({"email": email, "count": cnt})
+            except Exception:
+                pass
+
+    entries_by_user.sort(key=lambda x: x["count"], reverse=True)
+
+    # Assessment stats
+    assessment_user_count = 0
+    total_assessments = 0
+    if ASSESSMENTS_DIR.exists():
+        for f in ASSESSMENTS_DIR.glob("*.json"):
+            try:
+                results = json.loads(f.read_text(encoding="utf-8"))
+                cnt = len(results) if isinstance(results, list) else 0
+                if cnt > 0:
+                    assessment_user_count += 1
+                    total_assessments += cnt
+            except Exception:
+                pass
+
+    # Active users = users with journal or assessment in last 30 days
+    active_cutoff = time.time() - 30 * 86400
+    active_set: set[str] = set()
+    if JOURNALS_DIR.exists():
+        for f in JOURNALS_DIR.glob("*.json"):
+            try:
+                entries = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(entries, list):
+                    for e in entries:
+                        from datetime import datetime as _dt
+                        ts_str = e.get("created_at", "")
+                        if ts_str:
+                            try:
+                                ts = _dt.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+                                if ts >= active_cutoff:
+                                    active_set.add(f.stem)
+                                    break
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
+    return {
+        "total_users":         total_users,
+        "reg_trend":           reg_trend,
+        "journal_user_count":  journal_user_count,
+        "total_journal_entries": total_journal_entries,
+        "top_journal_users":   entries_by_user[:5],
+        "assessment_user_count": assessment_user_count,
+        "total_assessments":   total_assessments,
+        "active_users_30d":    len(active_set),
+    }
+
+
 # ── Routes ──────────────────────────────────────────────────────────
 @router.get("/admin/stats")
 async def get_stats(authorization: Optional[str] = Header(default=None)):
     require_admin(authorization)
     return load_stats()
+
+
+@router.get("/admin/stats/users")
+async def get_user_stats_route(authorization: Optional[str] = Header(default=None)):
+    """User operations metrics — not cached (small dataset)."""
+    require_admin(authorization)
+    return get_user_stats()
 
 
 @router.post("/admin/stats/refresh")
