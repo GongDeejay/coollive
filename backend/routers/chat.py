@@ -1,4 +1,4 @@
-"""Chat, feedback and session routes."""
+"""Chat, feedback, session and conversation history routes."""
 import os
 import uuid
 import json
@@ -6,9 +6,11 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from openai import OpenAI
+
+import auth as _auth
 
 router = APIRouter()
 
@@ -19,11 +21,69 @@ client = OpenAI(
 )
 MODEL = os.environ.get("XIAOMI_MODEL", "mimo-v2-omni")
 
-# ── Feedback persistence ────────────────────────────────────────────
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/opt/zentalk/data"))
+# ── Persistence paths ───────────────────────────────────────────────
+DATA_DIR          = Path(os.environ.get("DATA_DIR", "/opt/zentalk/data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-LIKED_FILE    = DATA_DIR / "liked_examples.json"
-DISLIKED_FILE = DATA_DIR / "disliked_examples.json"
+LIKED_FILE        = DATA_DIR / "liked_examples.json"
+DISLIKED_FILE     = DATA_DIR / "disliked_examples.json"
+CONVERSATIONS_DIR = DATA_DIR / "conversations"
+CONVERSATIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+MAX_CONVS_PER_USER = 50
+
+
+# ── Conversation cloud storage helpers ──────────────────────────────
+def _conv_path(user_id: str) -> Path:
+    return CONVERSATIONS_DIR / f"{user_id}.json"
+
+
+def _load_convs(user_id: str) -> list:
+    p = _conv_path(user_id)
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+    return []
+
+
+def _save_convs(user_id: str, convs: list):
+    _conv_path(user_id).write_text(
+        json.dumps(convs, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _upsert_conv(user_id: str, session_id: str,
+                 user_msg: str, reply: str, turn_count: int):
+    """Append one exchange to the user's conversation history."""
+    now = time.strftime("%Y-%m-%dT%H:%M:%S+08:00")
+    convs = _load_convs(user_id)
+
+    for conv in convs:
+        if conv["session_id"] == session_id:
+            conv["messages"].append({"role": "user",      "content": user_msg, "at": now})
+            conv["messages"].append({"role": "assistant", "content": reply,    "at": now})
+            conv["last_at"]    = now
+            conv["turn_count"] = turn_count
+            _save_convs(user_id, convs)
+            return
+
+    # New session
+    title = user_msg[:25] + ("…" if len(user_msg) > 25 else "")
+    convs.insert(0, {
+        "session_id":  session_id,
+        "title":       title,
+        "created_at":  now,
+        "last_at":     now,
+        "turn_count":  turn_count,
+        "messages": [
+            {"role": "user",      "content": user_msg, "at": now},
+            {"role": "assistant", "content": reply,    "at": now},
+        ],
+    })
+    if len(convs) > MAX_CONVS_PER_USER:
+        convs = convs[:MAX_CONVS_PER_USER]
+    _save_convs(user_id, convs)
 
 def _load(path: Path) -> list[dict]:
     if path.exists():
@@ -252,7 +312,8 @@ class FeedbackResponse(BaseModel):
 
 # ── Routes ─────────────────────────────────────────────────────────
 @router.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest,
+               authorization: Optional[str] = Header(default=None)):
     session_id = req.session_id or str(uuid.uuid4())
     current_turn = 0
     if session_id in sessions:
@@ -288,6 +349,15 @@ async def chat(req: ChatRequest):
     if len(pending_feedback) > 200:
         for k in sorted(pending_feedback, key=lambda k: pending_feedback[k]["ts"])[:50]:
             del pending_feedback[k]
+
+    # Auto-save for logged-in users (non-blocking)
+    if authorization:
+        user = _auth.optional_user(authorization)
+        if user:
+            try:
+                _upsert_conv(user["sub"], session_id, req.message, reply, current_turn + 1)
+            except Exception:
+                pass
 
     return ChatResponse(session_id=session_id, message_id=message_id,
                         reply=reply, turn=current_turn + 1)
@@ -327,4 +397,35 @@ def feedback_stats():
 @router.delete("/session/{session_id}")
 def clear_session(session_id: str):
     sessions.pop(session_id, None)
+
+
+# ── Conversation history (auth required) ───────────────────────────
+@router.get("/chat/history")
+def get_history(authorization: Optional[str] = Header(default=None)):
+    """List all saved conversations for the logged-in user (no message bodies)."""
+    user = _auth.require_user(authorization)
+    convs = _load_convs(user["sub"])
+    summaries = [{k: v for k, v in c.items() if k != "messages"} for c in convs]
+    return {"sessions": summaries, "total": len(summaries)}
+
+
+@router.get("/chat/history/{session_id}")
+def get_history_session(session_id: str,
+                        authorization: Optional[str] = Header(default=None)):
+    """Return one full conversation (with messages)."""
+    user = _auth.require_user(authorization)
+    for conv in _load_convs(user["sub"]):
+        if conv["session_id"] == session_id:
+            return conv
+    raise HTTPException(status_code=404, detail="session_not_found")
+
+
+@router.delete("/chat/history/{session_id}")
+def delete_history_session(session_id: str,
+                            authorization: Optional[str] = Header(default=None)):
+    """Delete one conversation from the user's history."""
+    user = _auth.require_user(authorization)
+    convs = [c for c in _load_convs(user["sub"]) if c["session_id"] != session_id]
+    _save_convs(user["sub"], convs)
+    return {"ok": True, "total": len(convs)}
     return {"cleared": True}

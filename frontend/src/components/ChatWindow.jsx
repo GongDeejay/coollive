@@ -100,8 +100,10 @@ function WelcomeScreen() {
   )
 }
 
-export default function ChatWindow({ messages, loading, onSend, onLike, onDislike }) {
-  const [input, setInput] = useState('')
+export default function ChatWindow({ messages, loading, onSend, onLike, onDislike,
+                                     isLoggedIn, onLoginPrompt }) {
+  const [input, setInput]               = useState('')
+  const [hintDismissed, setHintDismissed] = useState(false)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
   const [placeholder] = useState(
@@ -136,6 +138,9 @@ export default function ChatWindow({ messages, loading, onSend, onLike, onDislik
     el.style.height = Math.min(el.scrollHeight, 160) + 'px'
   }
 
+  const zenTurns = messages.filter(m => m.role === 'zen').length
+  const showLoginHint = !isLoggedIn && !hintDismissed && zenTurns >= 2
+
   return (
     <div className="chat-window">
       <div className="messages-area">
@@ -158,6 +163,15 @@ export default function ChatWindow({ messages, loading, onSend, onLike, onDislik
         )}
         <div ref={bottomRef} />
       </div>
+
+      {showLoginHint && (
+        <div className="login-hint">
+          <span>登录后，对话将自动保存</span>
+          <button className="login-hint-btn" onClick={onLoginPrompt}>去登录</button>
+          <button className="login-hint-dismiss" onClick={() => setHintDismissed(true)}
+            aria-label="关闭">✕</button>
+        </div>
+      )}
 
       <div className="input-bar">
         <div className="input-wrap">

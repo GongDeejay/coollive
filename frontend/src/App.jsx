@@ -7,6 +7,7 @@ import DeckOverlay from './components/DeckOverlay'
 import MindFreedomPage from './components/MindFreedomPage'
 import AdminDashboard from './components/AdminDashboard'
 import ChangePasswordModal from './components/ChangePasswordModal'
+import ChatHistoryPanel from './components/ChatHistoryPanel'
 
 const ADMIN_EMAIL = 'gongdj@gmail.com'
 import { useJournal } from './hooks/useJournal'
@@ -25,9 +26,10 @@ export default function App() {
   const [sessionId, setSessionId] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading]   = useState(false)
-  const [showAuth, setShowAuth]     = useState(false)
+  const [showAuth, setShowAuth]           = useState(false)
   const [showChangePwd, setShowChangePwd] = useState(false)
   const [showUserMenu, setShowUserMenu]   = useState(false)
+  const [showHistory, setShowHistory]     = useState(false)
 
   const apiBase = import.meta.env.VITE_API_URL || '/api'
 
@@ -58,9 +60,10 @@ export default function App() {
     setMessages(prev => [...prev, userMsg])
     setLoading(true)
     try {
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
       const res = await fetch(`${apiBase}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers,
         body: JSON.stringify({ session_id: sessionId, message: text }),
       })
       if (!res.ok) throw new Error()
@@ -77,7 +80,30 @@ export default function App() {
         id: Date.now() + 1, error: true,
       }])
     } finally { setLoading(false) }
-  }, [sessionId, loading, apiBase])
+  }, [sessionId, loading, apiBase, token])
+
+  // ── Load a historical session ──────────────────────────────────────
+  const loadHistorySession = useCallback(async (session_id) => {
+    try {
+      const res = await fetch(`${apiBase}/chat/history/${session_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const conv = await res.json()
+      const msgs = (conv.messages || []).map((m, i) => ({
+        id: Date.now() + i,
+        role: m.role === 'assistant' ? 'zen' : 'user',
+        content: m.content,
+        message_id: null,
+        liked: false,
+        disliked: false,
+        fromHistory: true,
+      }))
+      setMessages(msgs)
+      setSessionId(conv.session_id)
+      setShowHistory(false)
+    } catch { /* silent */ }
+  }, [apiBase, token])
 
   const likeMessage = useCallback(async (msgId, messageId) => {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, liked: true } : m))
@@ -136,6 +162,9 @@ export default function App() {
 
           {/* Right actions */}
           <div className="header-actions">
+            {tab === 'chat' && user && (
+              <button className="btn-clear" onClick={() => setShowHistory(true)}>历史</button>
+            )}
             {tab === 'chat' && messages.length > 0 && (
               <button className="btn-clear" onClick={clearSession}>新对话</button>
             )}
@@ -165,6 +194,8 @@ export default function App() {
           <ChatWindow
             messages={messages} loading={loading}
             onSend={sendMessage} onLike={likeMessage} onDislike={dislikeMessage}
+            isLoggedIn={!!user}
+            onLoginPrompt={() => setShowAuth(true)}
           />
         )}
         {tab === 'freedom' && (
@@ -230,6 +261,15 @@ export default function App() {
           apiBase={apiBase} token={token}
           userEmail={user.email}
           onClose={() => setShowChangePwd(false)}
+        />
+      )}
+
+      {showHistory && user && (
+        <ChatHistoryPanel
+          apiBase={apiBase} token={token}
+          onLoadSession={loadHistorySession}
+          onNewSession={() => { clearSession(); setShowHistory(false) }}
+          onClose={() => setShowHistory(false)}
         />
       )}
     </div>
