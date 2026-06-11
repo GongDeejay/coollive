@@ -1,0 +1,56 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface-2: #222222;
+  --border: #2e2e2e;
+  --text-primary: #e8e0d5;
+  --text-secondary: #8a8078;
+  --accent: #c4a882;
+  --accent-hover: #d4b892;
+  --user-bubble: #1e2a1e;
+  --zen-bubble: #1a1a1a;
+  --scrollbar: #2e2e2e;
+  --radius: 16px;
+
+  /* Responsive spacing */
+  --page-pad: 20px;
+  --bubble-max: 72%;
+}
+
+@media (max-width: 480px) {
+  :root {
+    --page-pad: 14px;
+    --bubble-max: 85%;
+  }
+}
+
+/* Tell iOS/iPadOS that this is a dark UI → candidate bar uses dark theme */
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  /* Prevent iOS bounce */
+  overscroll-behavior: none;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }

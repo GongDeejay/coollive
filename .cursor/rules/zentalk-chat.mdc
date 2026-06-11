@@ -1,0 +1,38 @@
+---
+description: ZenTalk 对话模块开发约束
+globs:
+  - "backend/routers/chat.py"
+alwaysApply: false
+---
+
+# ZenTalk 对话模块
+
+## 职责范围
+- 多轮对话（`/chat`）
+- 用户反馈（`/feedback/like`、`/feedback/dislike`、`/feedback/stats`）
+- 会话管理（`/session/{id}` DELETE）
+
+## 文件边界
+**只改**：`backend/routers/chat.py`
+**不碰**：`backend/routers/journal.py`、`backend/routers/auth_routes.py`、`backend/auth.py`
+
+## Prompt 结构
+```
+BASE_PROMPT          ← 固定的人格 + 风格 + 示例
+build_system_prompt() ← 动态拼接：BASE_PROMPT + 多轮点醒 + liked/disliked 样本
+```
+
+修改风格和 few-shot 时只改 `BASE_PROMPT`。
+修改反馈学习逻辑时只改 `build_system_prompt()`。
+
+## 对外接口（其他模块可调用，不要改）
+```
+POST /api/chat        → {session_id, message} → {reply, message_id, turn}
+POST /api/feedback/like   → {message_id}
+POST /api/feedback/dislike → {message_id}
+```
+
+## 与其他模块的关系
+- `auth.py`：不直接依赖，对话是匿名的
+- `journal.py`：未来 `zen_session_id` 字段可以把对话和日记条目关联
+- 3D 测验模块：可通过 HTTP 调用 `/api/chat` 接入，在 message 里携带测评结果作为上下文

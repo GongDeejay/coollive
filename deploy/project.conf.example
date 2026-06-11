@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────
+# 项目部署配置文件
+# 复制为 project.conf 并填写，每个项目一份
+# ─────────────────────────────────────────────────────────────────
+
+# ── 项目基本信息 ──────────────────────────────────────────────────
+PROJECT_NAME="myapp"               # 项目唯一名称（英文小写），用于 PM2 进程名、目录名
+DOMAIN="myapp.mplusm.site"         # 二级域名
+ADMIN_EMAIL="admin@mplusm.site"    # Let's Encrypt 通知邮件
+
+# ── 服务器信息（默认值已指向腾讯云 CVM，通常不需改）────────────────
+SERVER_IP="43.133.145.77"
+SERVER_USER="root"
+# SERVER_PASS 从环境变量读取，不写在这里
+
+# ── 前端配置 ──────────────────────────────────────────────────────
+# "static"  : 纯静态文件，Nginx 直接 serve（React/Vue 编译产物）
+# "node"    : Node.js 应用，PM2 运行，Nginx 反代
+# "none"    : 无前端（纯 API 服务）
+FRONTEND_TYPE="static"
+FRONTEND_BUILD_DIR="frontend/dist"  # 相对于项目根目录
+FRONTEND_BUILD_CMD="cd frontend && npm ci && npm run build"
+
+# ── 后端配置 ──────────────────────────────────────────────────────
+# "python"  : Python 应用，uvicorn / gunicorn
+# "node"    : Node.js 应用
+# "none"    : 无后端（纯静态站点）
+BACKEND_TYPE="python"
+BACKEND_PORT="8765"                 # 后端监听端口（Nginx 反代用）
+BACKEND_DIR="backend"               # 后端代码目录（相对项目根）
+# Python 启动命令（相对 /opt/${PROJECT_NAME} 执行）
+BACKEND_START_CMD="python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8765"
+# Node.js 启动命令示例：
+# BACKEND_START_CMD="node server.js"
+
+# Python 依赖安装命令（留空则跳过）
+BACKEND_INSTALL_CMD="pip3 install -r backend/requirements.txt -q"
+
+# ── 环境变量（后端运行时注入）────────────────────────────────────
+# 格式：KEY=VALUE，一行一个，敏感值从 shell 环境变量读取
+# 示例：
+# ENV_VARS="
+# NODE_ENV=production
+# API_KEY=${MY_API_KEY}
+# "
+ENV_VARS=""
+
+# ── Nginx 代理配置 ────────────────────────────────────────────────
+# API 路径前缀（前端请求 /api/xxx 会被代理到后端 /xxx）
+# 设为空字符串则整站代理到后端（适合纯 API 或 SSR）
+API_PREFIX="/api"
