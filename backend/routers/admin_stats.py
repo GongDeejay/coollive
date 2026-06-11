@@ -210,9 +210,10 @@ def load_stats(force: bool = False) -> dict:
 
 
 # ── User operations metrics ─────────────────────────────────────────
-USERS_FILE    = DATA_DIR / "users.json"
-JOURNALS_DIR  = DATA_DIR / "journals"
-ASSESSMENTS_DIR = DATA_DIR / "assessments"
+USERS_FILE       = DATA_DIR / "users.json"
+JOURNALS_DIR     = DATA_DIR / "journals"
+ASSESSMENTS_DIR  = DATA_DIR / "assessments"
+CONVERSATIONS_DIR = DATA_DIR / "conversations"
 
 
 def get_user_stats() -> dict:
@@ -298,15 +299,60 @@ def get_user_stats() -> dict:
             except Exception:
                 pass
 
+    # Conversation stats
+    conv_user_count    = 0
+    total_convs        = 0
+    total_conv_msgs    = 0
+    conv_by_user: list[dict] = []
+    conv_by_day: dict[str, int] = defaultdict(int)
+    conv_cutoff = (datetime.now() - timedelta(days=7)).isoformat()[:10]  # "YYYY-MM-DD"
+
+    if CONVERSATIONS_DIR.exists():
+        for f in CONVERSATIONS_DIR.glob("*.json"):
+            uid = f.stem
+            try:
+                convs = json.loads(f.read_text(encoding="utf-8"))
+                if not isinstance(convs, list) or len(convs) == 0:
+                    continue
+                conv_user_count += 1
+                total_convs     += len(convs)
+                for conv in convs:
+                    total_conv_msgs += len(conv.get("messages", []))
+                    day = (conv.get("created_at") or "")[:10]
+                    if day >= conv_cutoff:
+                        conv_by_day[day] += 1
+                email = users.get(uid, {}).get("email", uid[:8] + "…")
+                conv_by_user.append({"email": email, "count": len(convs)})
+                # Also mark this user as active
+                active_set.add(uid)
+            except Exception:
+                pass
+
+    conv_by_user.sort(key=lambda x: x["count"], reverse=True)
+
+    conv_trend = []
+    for i in range(6, -1, -1):
+        day = (datetime.now().date() - timedelta(days=i)).strftime("%Y-%m-%d")
+        conv_trend.append({"date": day, "count": conv_by_day.get(day, 0)})
+
+    avg_turns = round(total_convs / conv_user_count, 1) if conv_user_count else 0
+
     return {
-        "total_users":         total_users,
-        "reg_trend":           reg_trend,
-        "journal_user_count":  journal_user_count,
+        "total_users":           total_users,
+        "reg_trend":             reg_trend,
+        "journal_user_count":    journal_user_count,
         "total_journal_entries": total_journal_entries,
-        "top_journal_users":   entries_by_user[:5],
+        "top_journal_users":     entries_by_user[:5],
         "assessment_user_count": assessment_user_count,
-        "total_assessments":   total_assessments,
-        "active_users_30d":    len(active_set),
+        "total_assessments":     total_assessments,
+        "active_users_30d":      len(active_set),
+        # conversation stats
+        "conv_user_count":       conv_user_count,
+        "total_convs":           total_convs,
+        "total_conv_msgs":       total_conv_msgs,
+        "avg_turns_per_conv":    avg_turns,
+        "conv_trend":            conv_trend,
+        "top_conv_users":        conv_by_user[:5],
     }
 
 

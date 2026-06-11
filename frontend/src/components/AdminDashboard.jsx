@@ -135,13 +135,33 @@ function ErrorRow({ e }) {
   )
 }
 
+// ── Reusable mini user-rank list ─────────────────────────────────
+function UserRankList({ title, items, unit }) {
+  if (!items?.length) return null
+  return (
+    <div className="ad-card" style={{ marginTop: 10 }}>
+      <div className="ad-card-site" style={{ marginBottom: 8 }}>{title}</div>
+      {items.map((it, i) => (
+        <div key={i} className="ad-proc-row" style={{ gap: 8 }}>
+          <span className="ad-proc-name" style={{ fontSize: 12 }}>{it.email}</span>
+          <span style={{ fontSize: 11, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
+            {it.count} {unit}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── User ops section ──────────────────────────────────────────────
 function UserStats({ u }) {
   if (!u) return <div className="ad-card ad-card--loading">加载中…</div>
-  const newThisWeek = u.reg_trend?.reduce((s, d) => s + d.count, 0) ?? 0
+  const newThisWeek  = u.reg_trend?.reduce((s, d) => s + d.count, 0) ?? 0
+  const newConvWeek  = u.conv_trend?.reduce((s, d) => s + d.count, 0) ?? 0
   return (
     <div className="ad-user-section">
-      {/* Key numbers */}
+
+      {/* ── 用户概况 KPI ── */}
       <div className="ad-user-kpi-grid">
         <div className="ad-kpi">
           <span className="ad-kpi-num">{u.total_users}</span>
@@ -150,6 +170,10 @@ function UserStats({ u }) {
         <div className="ad-kpi">
           <span className="ad-kpi-num">{u.active_users_30d}</span>
           <span className="ad-kpi-label">30天活跃</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num ad-kpi-num--accent">+{newThisWeek}</span>
+          <span className="ad-kpi-label">7天新注册</span>
         </div>
         <div className="ad-kpi">
           <span className="ad-kpi-num">{u.journal_user_count}</span>
@@ -163,13 +187,9 @@ function UserStats({ u }) {
           <span className="ad-kpi-num">{u.assessment_user_count}</span>
           <span className="ad-kpi-label">做过测评</span>
         </div>
-        <div className="ad-kpi">
-          <span className="ad-kpi-num ad-kpi-num--accent">+{newThisWeek}</span>
-          <span className="ad-kpi-label">7天新注册</span>
-        </div>
       </div>
 
-      {/* Registration 7-day trend */}
+      {/* 注册趋势 */}
       <div className="ad-card" style={{ marginTop: 10 }}>
         <div className="ad-card-site">新注册趋势（7天）</div>
         <Sparkline data={(u.reg_trend ?? []).map(d => ({ requests: d.count }))}
@@ -181,20 +201,48 @@ function UserStats({ u }) {
         </div>
       </div>
 
-      {/* Top journal users */}
-      {u.top_journal_users?.length > 0 && (
+      <UserRankList title="随手记最多的用户" items={u.top_journal_users} unit="条" />
+
+      {/* ── 对话统计 KPI ── */}
+      <div className="ad-section-sub">对话记录</div>
+      <div className="ad-user-kpi-grid">
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.total_convs ?? 0}</span>
+          <span className="ad-kpi-label">历史对话数</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.total_conv_msgs ?? 0}</span>
+          <span className="ad-kpi-label">消息总条数</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.conv_user_count ?? 0}</span>
+          <span className="ad-kpi-label">有对话记录</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num">{u.avg_turns_per_conv ?? 0}</span>
+          <span className="ad-kpi-label">平均轮次</span>
+        </div>
+        <div className="ad-kpi">
+          <span className="ad-kpi-num ad-kpi-num--accent">+{newConvWeek}</span>
+          <span className="ad-kpi-label">7天新对话</span>
+        </div>
+      </div>
+
+      {/* 对话趋势 */}
+      {(u.conv_trend?.some(d => d.count > 0)) && (
         <div className="ad-card" style={{ marginTop: 10 }}>
-          <div className="ad-card-site" style={{ marginBottom: 8 }}>随手记最多的用户</div>
-          {u.top_journal_users.map((ju, i) => (
-            <div key={i} className="ad-proc-row" style={{ gap: 8 }}>
-              <span className="ad-proc-name" style={{ fontSize: 12 }}>{ju.email}</span>
-              <span style={{ fontSize: 11, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
-                {ju.count} 条
-              </span>
-            </div>
-          ))}
+          <div className="ad-card-site">新对话趋势（7天）</div>
+          <Sparkline data={(u.conv_trend ?? []).map(d => ({ requests: d.count }))}
+            color="#7ab4cf" height={46} />
+          <div className="ad-card-footer">
+            {(u.conv_trend ?? []).map(d => (
+              <span key={d.date}>{d.date.slice(5)} <b>{d.count}</b></span>
+            ))}
+          </div>
         </div>
       )}
+
+      <UserRankList title="对话最多的用户" items={u.top_conv_users} unit="条" />
     </div>
   )
 }
