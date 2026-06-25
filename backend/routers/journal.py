@@ -16,8 +16,10 @@ router = APIRouter()
 client = OpenAI(
     api_key=os.environ.get("XIAOMI_API_KEY", ""),
     base_url=os.environ.get("XIAOMI_BASE_URL", "https://token-plan-cn.xiaomimimo.com/v1"),
+    default_headers={"api-key": os.environ.get("XIAOMI_API_KEY", "")},
+    timeout=float(os.environ.get("XIAOMI_TIMEOUT", "45")),
 )
-MODEL = os.environ.get("XIAOMI_MODEL", "mimo-v2-omni")
+MODEL = os.environ.get("XIAOMI_MODEL", "mimo-v2.5")
 
 # ── Tag extraction prompt (v2 — 四层结构化认知标签) ────────────────
 TAG_EXTRACTION_PROMPT = """你是日记结构化认知标签提取系统。

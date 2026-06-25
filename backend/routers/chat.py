@@ -18,8 +18,10 @@ router = APIRouter()
 client = OpenAI(
     api_key=os.environ.get("XIAOMI_API_KEY", ""),
     base_url=os.environ.get("XIAOMI_BASE_URL", "https://token-plan-cn.xiaomimimo.com/v1"),
+    default_headers={"api-key": os.environ.get("XIAOMI_API_KEY", "")},
+    timeout=float(os.environ.get("XIAOMI_TIMEOUT", "45")),
 )
-MODEL = os.environ.get("XIAOMI_MODEL", "mimo-v2-omni")
+MODEL = os.environ.get("XIAOMI_MODEL", "mimo-v2.5")
 
 # ── Persistence paths ───────────────────────────────────────────────
 DATA_DIR          = Path(os.environ.get("DATA_DIR", "/opt/zentalk/data"))

@@ -11,6 +11,13 @@ function saveLocal(key, value) {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
+function fetchWithTimeout(url, options = {}, timeoutMs = 70000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer))
+}
+
 export function useMindFreedom(apiBase, token) {
   // page state machine
   const [page, setPage]           = useState('intro')
@@ -57,7 +64,7 @@ export function useMindFreedom(apiBase, token) {
     const testCount = loadLocal(COUNT_KEY, 0)
 
     try {
-      const res = await fetch(`${apiBase}/mind-freedom/questions?test_idx=${testCount}`)
+      const res = await fetchWithTimeout(`${apiBase}/mind-freedom/questions?test_idx=${testCount}`, {}, 30000)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setQuestions(data.questions || [])
@@ -114,11 +121,11 @@ export function useMindFreedom(apiBase, token) {
     }
 
     try {
-      const res = await fetch(`${apiBase}/mind-freedom/analyze`, {
+      const res = await fetchWithTimeout(`${apiBase}/mind-freedom/analyze`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
-      })
+      }, 70000)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const result = await res.json()
 

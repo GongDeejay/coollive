@@ -9,6 +9,38 @@ function saveLocal(entries) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
 }
 
+function fetchWithTimeout(url, options = {}, timeoutMs = 50000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer))
+}
+
+function fallbackTags(scene, feeling, reflection, raw) {
+  const text = [scene, feeling, reflection, raw].filter(Boolean).join(' ')
+  const emotion = []
+  if (/焦虑|担心|紧张|压力/.test(text)) emotion.push('焦虑')
+  if (/累|疲惫|困|倦/.test(text)) emotion.push('疲惫')
+  if (/开心|很爽|高兴|满意|满足/.test(text)) emotion.push('满足')
+  if (/生气|愤怒|火大/.test(text)) emotion.push('愤怒')
+  if (emotion.length === 0) emotion.push('平静')
+
+  const object = []
+  if (/项目|工作|任务|部署|开发|代码|系统/.test(text)) object.push('任务')
+  if (/朋友|同事|家人|关系|沟通/.test(text)) object.push('关系')
+  if (/身体|睡|病|累/.test(text)) object.push('身体')
+  if (object.length === 0) object.push('意义')
+
+  return {
+    object: object.slice(0, 2),
+    operation: ['观察'],
+    tension: [],
+    output_form: [],
+    emotion: emotion.slice(0, 2),
+    keywords: [],
+  }
+}
+
 export function useJournal(sessionId, apiBase, token) {
   const [entries, setEntries] = useState(() => loadLocal())
   const [saving, setSaving]   = useState(false)
@@ -74,12 +106,12 @@ export function useJournal(sessionId, apiBase, token) {
       const quadBody = JSON.stringify({ scene, feeling, reflection, raw })
 
       const [tagsRes, quadRes] = await Promise.allSettled([
-        fetch(`${apiBase}/journal/tags`,     { method: 'POST', headers, body: tagBody }),
-        fetch(`${apiBase}/journal/quadrant`, { method: 'POST', headers, body: quadBody }),
+        fetchWithTimeout(`${apiBase}/journal/tags`,     { method: 'POST', headers, body: tagBody }),
+        fetchWithTimeout(`${apiBase}/journal/quadrant`, { method: 'POST', headers, body: quadBody }),
       ])
 
-      let tags     = null
-      let summary  = ''
+      let tags     = fallbackTags(scene, feeling, reflection, raw)
+      let summary  = 'AI分析暂不可用，已保存原文'
       let quadrant = null
 
       if (tagsRes.status === 'fulfilled' && tagsRes.value.ok) {
