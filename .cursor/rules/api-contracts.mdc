@@ -1,0 +1,66 @@
+---
+description: 跨模块 API 契约 — ZenTalk ↔ 3D 测验 ↔ 未来模块
+globs:
+  - "backend/routers/**"
+  - "src/lib/integrations/**"
+alwaysApply: false
+---
+
+# 跨模块 API 契约
+
+## 模块地址
+| 模块 | URL | 端口 | 技术栈 |
+|------|-----|------|--------|
+| ZenTalk 对话+日记 | https://zen.mplusm.site | 8765 (内部) | Python FastAPI |
+| 3D 测验平台 | https://3d.mplusm.site | 3000 (内部) | Next.js |
+
+## ZenTalk 对外提供的接口
+
+### 对话接口（无需认证）
+```
+POST https://zen.mplusm.site/api/chat
+Body: { "session_id": "可选", "message": "用户消息" }
+Response: { "session_id": "...", "message_id": "...", "reply": "...", "turn": 1 }
+```
+
+### 日记写入接口（需要 JWT）
+```
+POST https://zen.mplusm.site/api/journal/entries/sync
+Header: Authorization: Bearer {token}
+Body: { "entry": { ...日记条目 } }
+```
+
+### 用户认证（获取 token）
+```
+POST https://zen.mplusm.site/api/auth/login
+Body: { "email": "...", "password": "..." }
+Response: { "token": "...", "user_id": "...", "email": "..." }
+```
+
+## 3D 测验 → ZenTalk 打通方案
+
+在 `src/lib/integrations/conversation-adapter.ts` 实现：
+
+```typescript
+// 把测评弱项作为上下文，调用 ZenTalk 对话
+const res = await fetch("https://zen.mplusm.site/api/chat", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: `我刚完成了AI素养测评，在「${weakAreas.map(a => a.dimension).join("、")}」方面较弱。你能帮我理解这意味着什么吗？`
+  })
+})
+```
+
+## 规则
+1. **永远不要**在 ZenTalk 代码里直接 import 3D 模块的代码（不同仓库）
+2. 跨模块通信只通过 HTTP API，不共享数据库
+3. 新增跨模块接口，先在此文件定义契约，再实现
+4. 用户身份打通：3D 模块用户完成问卷后，可以通过邮箱登录 ZenTalk 把结果存入日记
+
+## 未来第四、五个模块的接入规范
+1. 新建子域名 `{name}.mplusm.site`
+2. 分配新端口（当前已用：3000、8765）
+3. 在此文件添加模块地址和契约
+4. 在对应仓库的 `.cursor/rules/` 里创建领域 Rule
+5. 用 `deploy/project.conf` 模板部署

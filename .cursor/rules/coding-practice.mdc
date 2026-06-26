@@ -1,0 +1,55 @@
+---
+description: ZenTalk 代码修改规范
+globs:
+  - "frontend/src/**"
+  - "backend/**"
+alwaysApply: true
+---
+
+# 代码修改规范
+
+每次修改代码必须遵循以下规则，防止因工具使用不当导致代码损坏。
+
+## 1. 只用 StrReplace 做精确替换
+
+**禁止**用 Python 字符串注入、Shell heredoc、echo 重定向等方式修改代码文件。
+**必须**使用 StrReplace 工具，old_string 要足够具体（至少包含前后 3 行上下文）。
+
+```
+✓ StrReplace: old_string="  const [view, setView] = useState('list')\n  const groups =..."
+✗ Python: content.replace("old", "new")  ← 禁止
+```
+
+## 2. 改完必须本地构建验证
+
+前端每次修改后：
+```bash
+cd frontend && /home/ubuntu/.nvm/versions/node/v22.22.2/bin/node node_modules/.bin/vite build
+```
+看到 `✓ built in Xms` 才算改完。有编译错误必须先修复，不得跳过。
+
+## 3. 前端每次只改一个文件
+
+改 `JournalPage.jsx` → build 验证 → 再改 `JournalCharts.jsx`。
+不得同时修改多个文件再一起验证。
+
+## 4. 新功能先写测试用例
+
+后端新接口参考 `tests/prerelease.py` 模式：
+- 写测试 → 后端实现 → 运行 `python3 tests/prerelease.py` 全部通过 → 部署
+
+## 5. 临时调试脚本放 scripts/archive/
+
+有效工具脚本：`scripts/dns_setup.py`、`scripts/deploy_3d.py`、`scripts/update_3d.py`
+临时脚本：一律放 `scripts/archive/`，不污染根目录。
+
+## 6. 禁止在代码注释中残留调试信息
+
+修改时不留 `// TODO`、`// FIXME`、`// temp`、`console.log` 等调试痕迹。
+
+## 违反记录
+
+上次因违反规则 1（Python 字符串注入 JournalPage.jsx）导致：
+- `useState` 行末注释错位
+- `analyzeHistorical` 缺少 `useCallback` 包装
+- 日记模块整体白屏，需要回滚修复

@@ -1,0 +1,262 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 760px;
+  margin: 0 auto;
+  overflow-x: hidden;
+}
+
+/* ── Header ── */
+.app-header {
+  padding: 0 var(--page-pad);
+  height: 52px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  position: relative;
+  gap: 0;
+}
+
+.header-inner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Logo ── */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.logo-circle {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  display: inline-block;
+  position: relative;
+}
+.logo-circle::after {
+  content: '';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px; height: 5px;
+  border-radius: 50%; background: var(--accent);
+}
+
+.logo-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px; font-weight: 600;
+  color: var(--accent); letter-spacing: 0.03em;
+}
+
+/* ── Center nav tabs ── */
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nav-tab {
+  background: transparent; border: none;
+  color: var(--text-secondary);
+  font-size: 13px; font-family: inherit;
+  padding: 4px 14px;
+  border-radius: 16px;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px;
+  white-space: nowrap;
+}
+
+.nav-tab--active {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.nav-badge {
+  font-size: 10px;
+  background: var(--accent); color: #0f0f0f;
+  border-radius: 8px; padding: 0 5px;
+  line-height: 16px; font-weight: 600;
+}
+
+/* ── Right side header actions ── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-clear {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-auth {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-auth:hover { border-color: var(--accent); color: var(--accent); }
+.btn-auth--user {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 0.8;
+}
+
+/* ── Main area ── */
+.app-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── User menu dropdown ── */
+.user-menu-wrap {
+  position: relative;
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 120px;
+  z-index: 300;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  animation: menu-in 0.15s ease;
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.user-menu-dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.user-menu-dropdown button:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* ── Deck floating action button ── */
+.deck-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  background: var(--accent);
+  color: #0f0f0f;
+  border: none;
+  border-radius: 24px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  z-index: 200;
+  transition: all 0.2s;
+  animation: fab-in 0.25s ease;
+}
+
+@keyframes fab-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.deck-fab:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+}
+
+.deck-fab-icon { font-size: 14px; }
+
+.deck-fab-badge {
+  background: #0f0f0f;
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 700;
+}
+
+/* ── Mobile: 2-row header when nav + logo + actions are too cramped ── */
+@media (max-width: 560px) {
+  .app-header {
+    height: auto;
+    min-height: 52px;
+    padding-top: 7px;
+    padding-bottom: 6px;
+  }
+  .header-inner {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .logo { order: 1; flex: 1; }
+  .header-actions { order: 2; flex-shrink: 0; }
+  .app-nav {
+    order: 3;
+    position: static;
+    transform: none;
+    left: auto;
+    width: 100%;
+    justify-content: center;
+  }
+  .nav-tab { padding: 4px 12px; font-size: 13px; }
+}
+@media (max-width: 400px) {
+  .logo-text { font-size: 14px; }
+  .btn-clear, .btn-auth { padding: 4px 8px; font-size: 11px; }
+  .nav-tab { padding: 4px 9px; font-size: 12px; }
+}

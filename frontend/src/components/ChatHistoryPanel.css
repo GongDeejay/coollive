@@ -1,0 +1,187 @@
+/* ── Backdrop ── */
+.chp-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 500;
+  display: flex;
+  justify-content: flex-end;
+  animation: chp-fade-in 0.2s ease;
+}
+
+@keyframes chp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Panel ── */
+.chp-panel {
+  width: min(360px, 100vw);
+  height: 100%;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  animation: chp-slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes chp-slide-in {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to   { transform: translateX(0);    opacity: 1;   }
+}
+
+/* ── Header ── */
+.chp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.chp-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.chp-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
+}
+.chp-close:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* ── New conversation button ── */
+.chp-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 16px 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.chp-new-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.chp-new-icon {
+  font-size: 17px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+/* ── List ── */
+.chp-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 10px 20px;
+}
+
+/* ── States ── */
+.chp-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  opacity: 0.7;
+}
+.chp-state--empty p { margin: 0; line-height: 2; }
+.chp-state-sub { font-size: 11px; opacity: 0.6; }
+
+/* ── Session item ── */
+.chp-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 10px 11px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+  position: relative;
+}
+.chp-item:hover {
+  background: var(--surface);
+}
+.chp-item--deleting {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.chp-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.chp-item-title {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.chp-item-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chp-item-dot {
+  opacity: 0.4;
+}
+
+.chp-item-del {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+.chp-item:hover .chp-item-del {
+  opacity: 0.5;
+}
+.chp-item-del:hover {
+  opacity: 1 !important;
+  background: var(--surface-2);
+  color: #e07070;
+}
+
+/* ── Scrollbar ── */
+.chp-list::-webkit-scrollbar { width: 4px; }
+.chp-list::-webkit-scrollbar-track { background: transparent; }
+.chp-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
