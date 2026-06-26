@@ -4,6 +4,8 @@ import json
 import re as _re
 from typing import Optional
 from pathlib import Path
+from collections import Counter
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
@@ -97,6 +99,23 @@ class JournalTagResponse(BaseModel):
 
 class JournalSyncRequest(BaseModel):
     entry: dict
+
+
+class ReviewEntry(BaseModel):
+    id: str
+    created_at: str
+    scene: Optional[str] = None
+    feeling: Optional[str] = None
+    reflection: Optional[str] = None
+    raw: Optional[str] = None
+    summary: Optional[str] = None
+    tags: Optional[dict] = None
+    location: Optional[dict] = None
+
+
+class JournalReviewRequest(BaseModel):
+    days: int = 7
+    entries: list[ReviewEntry]
 
 
 # ── Tag extraction ─────────────────────────────────────────────────
@@ -241,6 +260,160 @@ async def analyze_quadrant(req: QuadrantRequest):
         dim=dim, value=value, energy=energy,
         secondary_dim=secondary, reason=data.get("reason", ""),
     )
+
+
+# ── Partner review ─────────────────────────────────────────────────
+REVIEW_PROMPT = """你是 ZenTalk 的“伙伴式回看”系统。
+
+用户已经持续写了很多随记，现在需要的不是更多标签，而是你把最近一段时间里的反复模式、情绪线索和真正卡住的点带回来给他看。
+
+请基于用户最近随记，生成一个温和、准确、有陪伴感的回看。不要像报表，不要像心理诊断，不要鸡汤。
+
+输出严格 JSON：
+{
+  "title": "不超过18字的回看标题",
+  "period_summary": "120-220字，概括这段时间用户主要在经历什么",
+  "recurring_patterns": ["反复出现的模式1", "模式2", "模式3"],
+  "emotional_weather": "40-80字，描述情绪天气",
+  "core_tension": "一句话指出最核心张力",
+  "stuck_point": "一句话指出用户可能真正卡住的点",
+  "suggested_question": "一个适合带入聊聊继续对话的问题",
+  "gentle_action": "一个很轻的下一步，不要命令口吻",
+  "related_entry_ids": ["最多5个最相关的entry id"],
+  "keywords": ["关键词1", "关键词2", "关键词3"]
+}
+
+规则：
+- related_entry_ids 必须来自输入的 id
+- 不要说“你应该”
+- 核心是“系统记得你”，不是“系统评价你”
+- 只返回 JSON，不要其他文字。"""
+
+
+def _entry_text(e: ReviewEntry) -> str:
+    return "\n".join(
+        p for p in [e.scene, e.feeling, e.reflection, e.raw, e.summary] if p
+    ).strip()
+
+
+def _fallback_review(req: JournalReviewRequest) -> dict:
+    """Local rule-based review, used when LLM is unavailable."""
+    emotion_counter: Counter[str] = Counter()
+    object_counter: Counter[str] = Counter()
+    tension_counter: Counter[str] = Counter()
+    keyword_counter: Counter[str] = Counter()
+
+    scored: list[tuple[int, ReviewEntry]] = []
+    for e in req.entries:
+        tags = e.tags or {}
+        for t in tags.get("emotion", []) or []:
+            emotion_counter[t] += 1
+        for t in tags.get("object", tags.get("topic", [])) or []:
+            object_counter[t] += 1
+        for t in tags.get("tension", []) or []:
+            tension_counter[t] += 1
+        for t in tags.get("keywords", []) or []:
+            keyword_counter[t] += 1
+        text = _entry_text(e)
+        score = len(text) + 30 * len(tags.get("tension", []) or [])
+        scored.append((score, e))
+
+    top_emotions = [k for k, _ in emotion_counter.most_common(3)] or ["平静"]
+    top_objects = [k for k, _ in object_counter.most_common(3)] or ["生活"]
+    top_tensions = [k for k, _ in tension_counter.most_common(2)]
+    keywords = [k for k, _ in keyword_counter.most_common(5)]
+    related = [e.id for _, e in sorted(scored, key=lambda x: x[0], reverse=True)[:5]]
+
+    dominant = "、".join(top_objects[:2])
+    emotion = "、".join(top_emotions[:2])
+    tension = "、".join(top_tensions) if top_tensions else f"{dominant}与自己的节奏"
+
+    return {
+        "title": f"{req.days}天回看",
+        "period_summary": (
+            f"这段时间的记录主要围绕{dominant}展开，情绪底色偏向{emotion}。"
+            "它不像单一事件，更像几个命题反复回来：你一边推进现实事务，"
+            "一边也在观察自己如何被责任、节奏和意义牵动。"
+        ),
+        "recurring_patterns": [
+            f"反复回到{dominant}相关的场景",
+            f"情绪上多次出现{emotion}",
+            "记录里既有推进，也有停下来理解自己的需要",
+        ],
+        "emotional_weather": f"这段时间的情绪天气以{emotion}为主，不是纯粹低落，更像持续消耗后的自我观察。",
+        "core_tension": f"核心张力可能是：{tension}。",
+        "stuck_point": "你可能不是不知道怎么做，而是在等一个更确定的内在许可。",
+        "suggested_question": f"我最近反复写到{dominant}，真正卡住我的是什么？",
+        "gentle_action": "先选一条最有触动的原文，只和它待一会儿。",
+        "related_entry_ids": related,
+        "keywords": keywords[:5],
+        "fallback": True,
+    }
+
+
+@router.post("/journal/review")
+async def review_journal(req: JournalReviewRequest):
+    if not req.entries:
+        raise HTTPException(status_code=400, detail="entries_required")
+
+    days = max(1, min(90, int(req.days or 7)))
+    entries = req.entries[:80]
+    payload = []
+    for e in entries:
+        payload.append({
+            "id": e.id,
+            "created_at": e.created_at,
+            "text": _entry_text(e)[:700],
+            "tags": e.tags or {},
+            "location": e.location,
+        })
+
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": REVIEW_PROMPT},
+                {"role": "user", "content": json.dumps({
+                    "days": days,
+                    "entry_count": len(entries),
+                    "entries": payload,
+                }, ensure_ascii=False)},
+            ],
+            max_tokens=3000,
+            temperature=0.45,
+        )
+        raw = resp.choices[0].message.content.strip()
+        m = _re.search(r'\{.*\}', raw, _re.DOTALL)
+        data = json.loads(m.group()) if m else {}
+        if not data:
+            raise ValueError("empty review")
+    except Exception:
+        data = _fallback_review(JournalReviewRequest(days=days, entries=entries))
+
+    valid_ids = {e.id for e in entries}
+    related_ids = [rid for rid in data.get("related_entry_ids", []) if rid in valid_ids][:5]
+    related_entries = [
+        e.model_dump() for e in entries
+        if e.id in set(related_ids)
+    ]
+
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "days": days,
+        "entry_count": len(entries),
+        "title": data.get("title", f"{days}天回看"),
+        "period_summary": data.get("period_summary", ""),
+        "recurring_patterns": data.get("recurring_patterns", [])[:5],
+        "emotional_weather": data.get("emotional_weather", ""),
+        "core_tension": data.get("core_tension", ""),
+        "stuck_point": data.get("stuck_point", ""),
+        "suggested_question": data.get("suggested_question", ""),
+        "gentle_action": data.get("gentle_action", ""),
+        "keywords": data.get("keywords", [])[:8],
+        "related_entry_ids": related_ids,
+        "related_entries": related_entries,
+        "fallback": bool(data.get("fallback", False)),
+    }
 
 
 # ── Cloud journal CRUD ─────────────────────────────────────────────

@@ -8,6 +8,7 @@ import MindFreedomPage from './components/MindFreedomPage'
 import AdminDashboard from './components/AdminDashboard'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import ChatHistoryPanel from './components/ChatHistoryPanel'
+import ReviewPage from './components/ReviewPage'
 
 const ADMIN_EMAIL = 'gongdj@gmail.com'
 import { useJournal } from './hooks/useJournal'
@@ -122,6 +123,12 @@ export default function App() {
     }).catch(() => {})
   }, [apiBase])
 
+  const handleReviewChat = useCallback((question) => {
+    if (!question) return
+    setTab('chat')
+    sendMessage(`我刚做了一次回看，系统提示我：${question}\n\n请陪我从这个点继续聊。`)
+  }, [sendMessage])
+
   const clearSession = useCallback(async () => {
     if (sessionId)
       await fetch(`${apiBase}/session/${sessionId}`, { method: 'DELETE' }).catch(() => {})
@@ -153,6 +160,8 @@ export default function App() {
               随记
               {entries.length > 0 && <span className="nav-badge">{entries.length}</span>}
             </button>
+            <button className={`nav-tab ${tab === 'review' ? 'nav-tab--active' : ''}`}
+              onClick={() => setTab('review')}>回看</button>
             <button className={`nav-tab ${tab === 'freedom' ? 'nav-tab--active' : ''}`}
               onClick={() => setTab('freedom')}>测测</button>
             {user?.email === ADMIN_EMAIL && (
@@ -205,6 +214,13 @@ export default function App() {
             user={user}
             token={token}
             onLoginPrompt={() => setShowAuth(true)}
+          />
+        )}
+        {tab === 'review' && (
+          <ReviewPage
+            entries={entries}
+            apiBase={apiBase}
+            onChatPrompt={handleReviewChat}
           />
         )}
         {tab === 'admin' && user?.email === ADMIN_EMAIL && (
