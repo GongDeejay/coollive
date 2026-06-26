@@ -79,7 +79,7 @@ export function useJournal(sessionId, apiBase, token) {
       .finally(() => setSyncing(false))
   }, [token]) // eslint-disable-line
 
-  const addEntry = useCallback(async ({ scene, feeling, reflection, raw, images = [] }) => {
+  const addEntry = useCallback(async ({ scene, feeling, reflection, raw, images = [], location = null }) => {
     const entry = {
       id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
@@ -89,6 +89,7 @@ export function useJournal(sessionId, apiBase, token) {
       reflection: reflection || '',
       raw: raw || '',
       images: images || [],   // [{id, dataUrl, type: 'upload'|'camera', width, height}]
+      location,
       tags: null,
       summary: '',
       quadrant: null,    // { dim, value, energy, secondary_dim, reason }
@@ -184,8 +185,12 @@ export function useJournal(sessionId, apiBase, token) {
       const quadStr = e.quadrant
         ? `[${e.quadrant.dim} ${e.quadrant.value>0?'+':''}${e.quadrant.value} ⚡${e.quadrant.energy}]`
         : ''
+      const locStr = e.location && typeof e.location.lat === 'number'
+        ? `📍 ${e.location.lat.toFixed(5)}, ${e.location.lng.toFixed(5)}${Number.isFinite(e.location.accuracy) ? ` ±${Math.round(e.location.accuracy)}m` : ''}`
+        : ''
       return [
         `## ${dt} ${quadStr}`, tagStr, '',
+        locStr,
         e.scene      ? `**场景：** ${e.scene}` : '',
         e.feeling    ? `**感受：** ${e.feeling}` : '',
         e.reflection ? `**体会：** ${e.reflection}` : '',

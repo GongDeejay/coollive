@@ -30,6 +30,23 @@
 }
 .img-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+.location-btn--on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(196, 168, 130, 0.08);
+}
+
+.img-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.journal-location-error {
+  font-size: 11px;
+  color: #c47a7a;
+  opacity: 0.75;
+}
+
 .img-count {
   font-size: 11px;
   color: var(--accent);
@@ -95,6 +112,14 @@
   transition: opacity 0.15s;
 }
 .entry-image-thumb:hover { opacity: 0.85; }
+
+.entry-location {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+  padding-top: 8px;
+}
 
 /* ── Login banner ── */
 .journal-login-banner {

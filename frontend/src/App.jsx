@@ -54,9 +54,9 @@ export default function App() {
   }
 
   // ── Chat ──────────────────────────────────────────────────────────
-  const sendMessage = useCallback(async (text) => {
+  const sendMessage = useCallback(async (text, location = null) => {
     if (!text.trim() || loading) return
-    const userMsg = { role: 'user', content: text, id: Date.now() }
+    const userMsg = { role: 'user', content: text, id: Date.now(), location }
     setMessages(prev => [...prev, userMsg])
     setLoading(true)
     try {
@@ -64,7 +64,7 @@ export default function App() {
       if (token) headers['Authorization'] = `Bearer ${token}`
       const res = await fetch(`${apiBase}/chat`, {
         method: 'POST', headers,
-        body: JSON.stringify({ session_id: sessionId, message: text }),
+        body: JSON.stringify({ session_id: sessionId, message: text, location }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -94,6 +94,7 @@ export default function App() {
         id: Date.now() + i,
         role: m.role === 'assistant' ? 'zen' : 'user',
         content: m.content,
+        location: m.location || null,
         message_id: null,
         liked: false,
         disliked: false,

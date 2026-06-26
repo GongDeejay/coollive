@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './ChatWindow.css'
+import { formatLocation, getBrowserLocation } from '../utils/location'
 
 const ZEN_PLACEHOLDERS = [
   '此刻你在想什么……',
@@ -77,6 +78,11 @@ function Message({ msg, onLike, onDislike }) {
             <p key={i}>{line}</p>
           ))}
         </div>
+        {msg.location && (
+          <div className="msg-location" title="发送时的位置">
+            📍 {formatLocation(msg.location)}
+          </div>
+        )}
         {showFeedback && (
           <FeedbackButtons
             liked={!!msg.liked}
@@ -104,6 +110,10 @@ export default function ChatWindow({ messages, loading, onSend, onLike, onDislik
                                      isLoggedIn, onLoginPrompt }) {
   const [input, setInput]               = useState('')
   const [hintDismissed, setHintDismissed] = useState(false)
+  const [locationEnabled, setLocationEnabled] = useState(false)
+  const [location, setLocation] = useState(null)
+  const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
   const [placeholder] = useState(
@@ -117,7 +127,7 @@ export default function ChatWindow({ messages, loading, onSend, onLike, onDislik
   const handleSend = () => {
     const text = input.trim()
     if (!text) return
-    onSend(text)
+    onSend(text, locationEnabled ? location : null)
     setInput('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -136,6 +146,25 @@ export default function ChatWindow({ messages, loading, onSend, onLike, onDislik
     const el = e.target
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  }
+
+  const toggleLocation = async () => {
+    setLocationError('')
+    if (locationEnabled) {
+      setLocationEnabled(false)
+      return
+    }
+    setLocating(true)
+    try {
+      const loc = await getBrowserLocation()
+      setLocation(loc)
+      setLocationEnabled(true)
+    } catch {
+      setLocationError('位置不可用')
+      setLocationEnabled(false)
+    } finally {
+      setLocating(false)
+    }
   }
 
   const zenTurns = messages.filter(m => m.role === 'zen').length
@@ -194,7 +223,18 @@ export default function ChatWindow({ messages, loading, onSend, onLike, onDislik
             <SendIcon />
           </button>
         </div>
-        <p className="input-hint">Enter 发送 &nbsp;·&nbsp; Shift+Enter 换行</p>
+        <div className="input-meta-row">
+          <button
+            className={`location-toggle ${locationEnabled ? 'location-toggle--on' : ''}`}
+            onClick={toggleLocation}
+            disabled={loading || locating}
+            title={locationEnabled && location ? formatLocation(location) : '附带当前位置'}
+          >
+            {locating ? '定位中…' : locationEnabled ? '📍已附带位置' : '📍位置'}
+          </button>
+          <span className="input-hint">Enter 发送 · Shift+Enter 换行</span>
+          {locationError && <span className="location-error">{locationError}</span>}
+        </div>
       </div>
     </div>
   )

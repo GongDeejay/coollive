@@ -55,16 +55,24 @@ def _save_convs(user_id: str, convs: list):
     )
 
 
+def _message(role: str, content: str, at: str, location: Optional[dict] = None) -> dict:
+    msg = {"role": role, "content": content, "at": at}
+    if location:
+        msg["location"] = location
+    return msg
+
+
 def _upsert_conv(user_id: str, session_id: str,
-                 user_msg: str, reply: str, turn_count: int):
+                 user_msg: str, reply: str, turn_count: int,
+                 location: Optional[dict] = None):
     """Append one exchange to the user's conversation history."""
     now = time.strftime("%Y-%m-%dT%H:%M:%S+08:00")
     convs = _load_convs(user_id)
 
     for conv in convs:
         if conv["session_id"] == session_id:
-            conv["messages"].append({"role": "user",      "content": user_msg, "at": now})
-            conv["messages"].append({"role": "assistant", "content": reply,    "at": now})
+            conv["messages"].append(_message("user", user_msg, now, location))
+            conv["messages"].append(_message("assistant", reply, now))
             conv["last_at"]    = now
             conv["turn_count"] = turn_count
             _save_convs(user_id, convs)
@@ -79,8 +87,8 @@ def _upsert_conv(user_id: str, session_id: str,
         "last_at":     now,
         "turn_count":  turn_count,
         "messages": [
-            {"role": "user",      "content": user_msg, "at": now},
-            {"role": "assistant", "content": reply,    "at": now},
+            _message("user", user_msg, now, location),
+            _message("assistant", reply, now),
         ],
     })
     if len(convs) > MAX_CONVS_PER_USER:
@@ -294,9 +302,18 @@ pending_feedback: dict[str, dict] = {}
 
 
 # ── Models ─────────────────────────────────────────────────────────
+class LocationInfo(BaseModel):
+    lat: float
+    lng: float
+    accuracy: Optional[float] = None
+    captured_at: Optional[str] = None
+    source: Optional[str] = None
+
+
 class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     message: str
+    location: Optional[LocationInfo] = None
 
 class ChatResponse(BaseModel):
     session_id: str
@@ -357,7 +374,10 @@ async def chat(req: ChatRequest,
         user = _auth.optional_user(authorization)
         if user:
             try:
-                _upsert_conv(user["sub"], session_id, req.message, reply, current_turn + 1)
+                _upsert_conv(
+                    user["sub"], session_id, req.message, reply, current_turn + 1,
+                    req.location.model_dump() if req.location else None,
+                )
             except Exception:
                 pass
 

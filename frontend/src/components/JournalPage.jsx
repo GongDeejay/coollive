@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import JournalCharts from './JournalCharts'
 import './JournalPage.css'
+import { formatLocation, getBrowserLocation } from '../utils/location'
 
 // ── Image compression helper ───────────────────────────────────────
 function compressImage(file, maxWidth = 1200, quality = 0.75) {
@@ -114,6 +115,7 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, i
     if (entry.reflection) parts.push(`体会：${entry.reflection}`)
     if (entry.raw && !entry.scene) parts.push(entry.raw)
     if (entry.summary)    parts.push(`—— ${entry.summary}`)
+    if (entry.location)   parts.push(`位置：${formatLocation(entry.location)}`)
     navigator.clipboard.writeText(parts.join('\n')).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -170,6 +172,11 @@ function EntryCard({ entry, onDelete, onTogglePublic, isLoggedIn, onAddToDeck, i
               ))}
             </div>
           )}
+          {entry.location && (
+            <div className="entry-location" title="记录时的位置">
+              📍 {formatLocation(entry.location)}
+            </div>
+          )}
           {entry.quadrant && (
             <div className="entry-quadrant">
               <span className="entry-quadrant-dim"
@@ -221,6 +228,10 @@ function JournalInput({ onSave, saving }) {
   const [fields, setFields] = useState({ scene: '', feeling: '', reflection: '' })
   const [freeText, setFreeText] = useState('')
   const [images, setImages] = useState([])
+  const [locationEnabled, setLocationEnabled] = useState(false)
+  const [location, setLocation] = useState(null)
+  const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
   const refs = { scene: useRef(), feeling: useRef(), reflection: useRef(), free: useRef() }
   const uploadRef  = useRef()
   const cameraRef  = useRef()
@@ -228,6 +239,7 @@ function JournalInput({ onSave, saving }) {
   const isEmpty = useTemplate
     ? !fields.scene && !fields.feeling && !fields.reflection
     : !freeText.trim()
+  const canSave = !isEmpty || images.length > 0 || (locationEnabled && !!location)
 
   const handleFieldInput = (key, e) => {
     setFields(prev => ({ ...prev, [key]: e.target.value }))
@@ -258,14 +270,34 @@ function JournalInput({ onSave, saving }) {
 
   const removeImage = (id) => setImages(prev => prev.filter(img => img.id !== id))
 
+  const toggleLocation = async () => {
+    setLocationError('')
+    if (locationEnabled) {
+      setLocationEnabled(false)
+      return
+    }
+    setLocating(true)
+    try {
+      const loc = await getBrowserLocation()
+      setLocation(loc)
+      setLocationEnabled(true)
+    } catch {
+      setLocationError('位置不可用')
+      setLocationEnabled(false)
+    } finally {
+      setLocating(false)
+    }
+  }
+
   const handleSave = () => {
-    if (isEmpty || saving) return
+    if (!canSave || saving) return
+    const entryLocation = locationEnabled ? location : null
     if (useTemplate) {
-      onSave({ scene: fields.scene, feeling: fields.feeling, reflection: fields.reflection, raw: '', images })
+      onSave({ scene: fields.scene, feeling: fields.feeling, reflection: fields.reflection, raw: '', images, location: entryLocation })
       setFields({ scene: '', feeling: '', reflection: '' })
       Object.values(refs).forEach(r => { if (r.current) r.current.style.height = 'auto' })
     } else {
-      onSave({ scene: '', feeling: '', reflection: '', raw: freeText, images })
+      onSave({ scene: '', feeling: '', reflection: '', raw: freeText, images, location: entryLocation })
       setFreeText('')
       if (refs.free.current) refs.free.current.style.height = 'auto'
     }
@@ -333,9 +365,18 @@ function JournalInput({ onSave, saving }) {
         <button className="img-btn" onClick={() => cameraRef.current?.click()} title="拍照">
           📷 拍照
         </button>
+        <button
+          className={`img-btn location-btn ${locationEnabled ? 'location-btn--on' : ''}`}
+          onClick={toggleLocation}
+          disabled={locating}
+          title={locationEnabled && location ? formatLocation(location) : '保存当前位置'}
+        >
+          {locating ? '定位中…' : locationEnabled ? '📍已定位' : '📍位置'}
+        </button>
         {images.length > 0 && (
           <span className="img-count">{images.length} 张</span>
         )}
+        {locationError && <span className="journal-location-error">{locationError}</span>}
       </div>
 
       {images.length > 0 && (
@@ -352,9 +393,9 @@ function JournalInput({ onSave, saving }) {
       <div className="journal-input-footer">
         <span className="journal-hint">⌘+Enter 保存</span>
         <button
-          className={`journal-save-btn ${(isEmpty && images.length === 0) ? '' : 'journal-save-btn--active'}`}
+          className={`journal-save-btn ${canSave ? 'journal-save-btn--active' : ''}`}
           onClick={handleSave}
-          disabled={(isEmpty && images.length === 0) || saving}
+          disabled={!canSave || saving}
         >
           {saving ? '分析中…' : '记录'}
         </button>
